@@ -649,6 +649,9 @@ async def crear_ficha(
     titulo: str = Form(default=""),
     header_height: int = Form(default=1150),
     estilo: str = Form(default="infantil"),
+    es_primera_pagina: bool = Form(default=True),
+    numero_pagina: int = Form(default=1),
+    total_paginas: int = Form(default=999),
 ):
     """Crea UNA sola página (compatibilidad)."""
     logger.info(f"📥 FICHA SIMPLE: {len(texto_cuento)} chars")
@@ -689,9 +692,9 @@ async def crear_ficha(
             header_img=header_img,
             texto_pagina=texto_lines,
             titulo=titulo,
-            es_primera_pagina=True,
-            numero_pagina=1,
-            total_paginas=1,
+            es_primera_pagina=es_primera_pagina,
+            numero_pagina=numero_pagina,
+            total_paginas=total_paginas,
             header_height=header_height,
             estilo=estilo
         )
