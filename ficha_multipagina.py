@@ -178,14 +178,63 @@ def draw_wavy_border(draw, a4_width, a4_height):
     colors = ['#FF6B9D', '#FFA07A', '#FFD93D', '#6BCF7F', '#4ECDC4', '#95E1D3']
     margin = 60
     wave_width = 40
-    
+
     for x in range(margin, a4_width - margin, 10):
         wave_y_top = margin + wave_width * math.sin(x * 0.05)
         draw.ellipse([x, wave_y_top - 5, x + 10, wave_y_top + 5], fill=colors[x % len(colors)])
-    
+
     for x in range(margin, a4_width - margin, 10):
         wave_y_bottom = a4_height - margin - wave_width * math.sin(x * 0.05)
         draw.ellipse([x, wave_y_bottom - 5, x + 10, wave_y_bottom + 5], fill=colors[x % len(colors)])
+
+def combinar_fondo_personaje(fondo_img: Image.Image, personaje_img: Image.Image, header_height: int) -> Image.Image:
+    """Combina imagen de fondo con personaje para crear header dinámico."""
+    a4_width = 2480
+
+    # Redimensionar fondo para que ocupe todo el header
+    target_aspect = a4_width / header_height
+    fondo_aspect = fondo_img.width / fondo_img.height
+
+    if fondo_aspect < target_aspect:
+        new_width = a4_width
+        new_height = int(a4_width / fondo_aspect)
+        fondo_resized = fondo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        top_crop = max(0, (new_height - header_height) // 2)
+        fondo_final = fondo_resized.crop((0, top_crop, new_width, top_crop + header_height))
+    else:
+        new_height = header_height
+        new_width = int(header_height * fondo_aspect)
+        fondo_resized = fondo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        left_crop = max(0, (new_width - a4_width) // 2)
+        fondo_final = fondo_resized.crop((left_crop, 0, left_crop + a4_width, new_height))
+
+    # Redimensionar personaje (máximo 40% del ancho del header)
+    max_personaje_width = int(a4_width * 0.4)
+    personaje_aspect = personaje_img.width / personaje_img.height
+
+    if personaje_img.width > max_personaje_width:
+        personaje_width = max_personaje_width
+        personaje_height = int(max_personaje_width / personaje_aspect)
+    else:
+        personaje_width = personaje_img.width
+        personaje_height = personaje_img.height
+
+    # Asegurar que no sea más alto que el header
+    if personaje_height > header_height * 0.8:
+        personaje_height = int(header_height * 0.8)
+        personaje_width = int(personaje_height * personaje_aspect)
+
+    personaje_resized = personaje_img.resize((personaje_width, personaje_height), Image.Resampling.LANCZOS)
+
+    # Posicionar personaje (lado derecho, centrado verticalmente)
+    personaje_x = a4_width - personaje_width - 100  # 100px del borde derecho
+    personaje_y = (header_height - personaje_height) // 2
+
+    # Combinar imágenes
+    resultado = fondo_final.copy().convert('RGBA')
+    resultado.paste(personaje_resized, (personaje_x, personaje_y), personaje_resized if personaje_resized.mode == 'RGBA' else None)
+
+    return resultado.convert('RGB')
 
 # ============================================================================
 # FUNCIONES PARA MULTIPÁGINA
@@ -644,7 +693,8 @@ async def crear_cuento_multipagina(
 
 @app.post("/crear-ficha")
 async def crear_ficha(
-    imagen: UploadFile = File(...),
+    imagen_fondo: UploadFile = File(...),
+    imagen_personaje: UploadFile = File(...),
     texto_cuento: str = Form(...),
     titulo: str = Form(default=""),
     header_height: int = Form(default=1150),
@@ -659,14 +709,23 @@ async def crear_ficha(
     palabras = len(texto_cuento.split())
     if palabras > 270:
         logger.warning(f"⚠️ Texto largo ({palabras} palabras)")
-    
+
     try:
-        img_bytes = await imagen.read()
-        header_img = Image.open(io.BytesIO(img_bytes))
-        
-        if header_img.mode != 'RGB':
-            header_img = header_img.convert('RGB')
-        
+        # Procesar imagen fondo
+        fondo_bytes = await imagen_fondo.read()
+        fondo_img = Image.open(io.BytesIO(fondo_bytes))
+        if fondo_img.mode != 'RGB':
+            fondo_img = fondo_img.convert('RGB')
+
+        # Procesar imagen personaje
+        personaje_bytes = await imagen_personaje.read()
+        personaje_img = Image.open(io.BytesIO(personaje_bytes))
+        if personaje_img.mode != 'RGBA':
+            personaje_img = personaje_img.convert('RGBA')
+
+        # Combinar fondo + personaje
+        header_img = combinar_fondo_personaje(fondo_img, personaje_img, header_height)
+
         margin_left = 160
         margin_right = 160
         max_width_px = 2480 - margin_left - margin_right
