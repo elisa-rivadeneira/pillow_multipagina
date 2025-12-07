@@ -396,7 +396,7 @@ def crear_pagina_cuento(
             else:
                 break
         
-        y_text = y_text + DROP_CAP_LINES * line_spacing + paragraph_spacing
+        y_text = y_current
         
         for i in range(lines_beside_cap, len(wrapped_first_para)):
             line_content, _ = wrapped_first_para[i]
