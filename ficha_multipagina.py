@@ -368,7 +368,7 @@ def crear_pagina_cuento(
         bbox_cap = draw.textbbox((0, 0), drop_cap_char, font=font_drop_cap)
         cap_width = bbox_cap[2] - bbox_cap[0]
         
-        cap_y_adjustment = -148
+        cap_y_adjustment = -153
         drop_cap_x = margin_left
         drop_cap_y_final = y_text + cap_y_adjustment
         
