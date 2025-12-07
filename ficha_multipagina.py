@@ -512,6 +512,91 @@ def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
     
     logger.info(f"✅ PDF creado con {len(imagenes)} páginas: {output_path}")
 
+
+
+# ============================================================================
+# 🆕 ENDPOINT NUEVO: COMBINAR DOCUMENTOS
+# ============================================================================
+
+@app.post("/combinar-documentos")
+async def combinar_documentos(rutas_archivos: List[str] = Form(...)):
+    """
+    Combina múltiples imágenes PNG o PDFs en un solo PDF multipágina.
+    
+    Args:
+        rutas_archivos: Lista de rutas de archivos a combinar (PNG o PDF)
+    
+    Returns:
+        PDF con todas las páginas combinadas
+    """
+    logger.info(f"🔗 COMBINAR DOCUMENTOS: {len(rutas_archivos)} archivos")
+    
+    try:
+        if not rutas_archivos:
+            raise HTTPException(status_code=400, detail="No se proporcionaron archivos para combinar")
+        
+        imagenes_combinadas = []
+        
+        for i, ruta in enumerate(rutas_archivos):
+            logger.info(f"📄 Procesando archivo {i+1}/{len(rutas_archivos)}: {ruta}")
+            
+            # Verificar que el archivo existe
+            if not os.path.exists(ruta):
+                logger.warning(f"⚠️ Archivo no encontrado: {ruta}")
+                continue
+            
+            # Determinar tipo de archivo
+            extension = os.path.splitext(ruta)[1].lower()
+            
+            if extension in ['.png', '.jpg', '.jpeg']:
+                # Cargar imagen directamente
+                img = Image.open(ruta)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                imagenes_combinadas.append(img)
+                
+            elif extension == '.pdf':
+                # Si es PDF, extraer páginas (requiere pdf2image)
+                try:
+                    from pdf2image import convert_from_path
+                    paginas_pdf = convert_from_path(ruta, dpi=300)
+                    imagenes_combinadas.extend(paginas_pdf)
+                except ImportError:
+                    logger.error("❌ pdf2image no está instalado. Instala con: pip install pdf2image")
+                    raise HTTPException(status_code=500, detail="pdf2image no disponible")
+            else:
+                logger.warning(f"⚠️ Formato no soportado: {extension}")
+        
+        if not imagenes_combinadas:
+            raise HTTPException(status_code=400, detail="No se pudieron cargar imágenes válidas")
+        
+        # Crear PDF combinado
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"Cuento_Completo_{len(imagenes_combinadas)}pag_{timestamp}.pdf"
+        output_path = f"/tmp/{filename}"
+        
+        imagenes_a_pdf(imagenes_combinadas, output_path)
+        
+        logger.info(f"✅ Documentos combinados: {len(imagenes_combinadas)} páginas")
+        
+        return FileResponse(
+            output_path,
+            media_type="application/pdf",
+            filename=filename,
+            headers={
+                "X-Total-Pages": str(len(imagenes_combinadas)),
+                "X-Files-Combined": str(len(rutas_archivos))
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Error combinando documentos: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 # ============================================================================
 # ENDPOINT PRINCIPAL MULTIPÁGINA
 # ============================================================================
