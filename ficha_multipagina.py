@@ -1,12 +1,14 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import FileResponse
 from PIL import Image, ImageDraw, ImageFont
+from pydantic import BaseModel
 import io
 import logging
 import re
 from datetime import datetime
 from typing import List, Tuple
 import math
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,7 +16,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # ============================================================================
-# FUNCIONES AUXILIARES (Las mismas que ya tienes)
+# MODELOS PYDANTIC
+# ============================================================================
+
+class CombinarDocumentosRequest(BaseModel):
+    rutas_archivos: List[str]
+
+# ============================================================================
+# FUNCIONES AUXILIARES
 # ============================================================================
 
 def sanitize_filename(text: str) -> str:
@@ -179,59 +188,37 @@ def draw_wavy_border(draw, a4_width, a4_height):
         draw.ellipse([x, wave_y_bottom - 5, x + 10, wave_y_bottom + 5], fill=colors[x % len(colors)])
 
 # ============================================================================
-# NUEVAS FUNCIONES PARA MULTIPÁGINA
+# FUNCIONES PARA MULTIPÁGINA
 # ============================================================================
 
 def calcular_lineas_por_pagina(header_height: int, line_spacing: int = 80) -> int:
-    """
-    Calcula cuántas líneas de texto caben en una página.
-    
-    Args:
-        header_height: Altura de la imagen de cabecera
-        line_spacing: Espacio entre líneas
-    
-    Returns:
-        Número aproximado de líneas que caben
-    """
+    """Calcula cuántas líneas de texto caben en una página."""
     a4_height = 3508
     max_height = 3380
     
-    # Espacio disponible para texto
     y_text_start = header_height + 245
     espacio_disponible = max_height - y_text_start
-    
-    # Líneas que caben (considerando letra capital en primera página)
     lineas_aproximadas = int(espacio_disponible / line_spacing)
     
     return lineas_aproximadas
 
 def dividir_texto_en_paginas(texto_completo: str, fonts, max_width_px: int, 
                               lineas_por_pagina: int, draw) -> List[List[Tuple[str, str]]]:
-    """
-    Divide el texto completo en chunks que quepan en cada página.
-    
-    Returns:
-        Lista de páginas, donde cada página es una lista de (línea, tipo)
-    """
-    # Obtener todas las líneas procesadas
+    """Divide el texto completo en chunks que quepan en cada página."""
     todas_las_lineas = wrap_text_with_markdown(texto_completo, fonts, max_width_px, draw)
     
     paginas = []
     pagina_actual = []
     lineas_en_pagina_actual = 0
-    
-    # Primera página tiene menos espacio por la letra capital (3 líneas)
     lineas_primera_pagina = lineas_por_pagina - 3
     
     for linea, tipo in todas_las_lineas:
-        # Determinar cuántas líneas caben en esta página
         max_lineas = lineas_primera_pagina if len(paginas) == 0 else lineas_por_pagina
         
         if tipo == 'paragraph_break':
             pagina_actual.append((linea, tipo))
-            lineas_en_pagina_actual += 1  # Los párrafos cuentan como espacio
+            lineas_en_pagina_actual += 1
         else:
-            # Si agregar esta línea excede el límite, crear nueva página
             if lineas_en_pagina_actual >= max_lineas:
                 paginas.append(pagina_actual)
                 pagina_actual = []
@@ -240,7 +227,6 @@ def dividir_texto_en_paginas(texto_completo: str, fonts, max_width_px: int,
             pagina_actual.append((linea, tipo))
             lineas_en_pagina_actual += 1
     
-    # Agregar última página si tiene contenido
     if pagina_actual:
         paginas.append(pagina_actual)
     
@@ -257,31 +243,15 @@ def crear_pagina_cuento(
     header_height: int = 1150,
     estilo: str = "infantil"
 ) -> Image.Image:
-    """
-    Crea UNA página del cuento con el diseño completo.
-    
-    Args:
-        header_img: Imagen para la cabecera
-        texto_pagina: Lista de (línea, tipo) para esta página
-        titulo: Título del cuento (solo se muestra en primera página)
-        es_primera_pagina: Si es la primera página (para letra capital)
-        numero_pagina: Número de esta página (1-indexed)
-        total_paginas: Total de páginas del cuento
-        header_height: Altura de la cabecera
-        estilo: Estilo visual
-    
-    Returns:
-        Imagen PIL de la página completa
-    """
+    """Crea UNA página del cuento con el diseño completo."""
     logger.info(f"📄 Creando página {numero_pagina}/{total_paginas}")
     
     a4_width = 2480
     a4_height = 3508
     
-    # Inicializar canvas
     canvas = Image.new('RGBA', (a4_width, a4_height), '#FFFEF0' if estilo == "infantil" else 'white')
     
-    # PROCESAMIENTO DE IMAGEN (cover centrado)
+    # PROCESAMIENTO DE IMAGEN
     target_aspect = a4_width / header_height
     image_aspect = header_img.width / header_img.height
 
@@ -358,14 +328,12 @@ def crear_pagina_cuento(
         title_offset_x = title_x_bg + padding_x
         title_offset_y = title_y_bg + padding_y
         
-        # Capa semitransparente
         alpha_img = Image.new('RGBA', canvas.size, (255, 255, 255, 0))
         alpha_draw = ImageDraw.Draw(alpha_img)
         alpha_draw.rectangle(title_bg_rect, fill=(255, 255, 255, 180))
         canvas = Image.alpha_composite(canvas, alpha_img)
         draw = ImageDraw.Draw(canvas)
         
-        # Efecto 3D en título
         title_main_color = '#E91E63'
         title_outline_color = '#8E24AA'
         outline_width = 4
@@ -378,7 +346,6 @@ def crear_pagina_cuento(
         
         draw.text((title_offset_x, title_offset_y), titulo_capitalizado, font=font_titulo, fill=title_main_color)
     
-    # Convertir a RGB
     canvas = canvas.convert('RGB')
     draw = ImageDraw.Draw(canvas)
     
@@ -386,7 +353,6 @@ def crear_pagina_cuento(
     
     # DIBUJAR TEXTO
     if es_primera_pagina and texto_pagina and texto_pagina[0][1] == 'text':
-        # LETRA CAPITAL en primera página
         full_first_line_content = texto_pagina[0][0]
         drop_cap_char = full_first_line_content[0]
         
@@ -409,20 +375,17 @@ def crear_pagina_cuento(
         cap_color = '#ef4444'
         draw.text((drop_cap_x, drop_cap_y_final), drop_cap_char, font=font_drop_cap, fill=cap_color)
         
-        # Texto al lado de la letra capital
         rest_x = drop_cap_x + cap_width + 25
         rest_max_width = a4_width - rest_x - margin_right
         
         first_line_without_cap = full_first_line_content[1:].lstrip()
         
-        # Re-wrap solo el primer párrafo
         temp_draw = ImageDraw.Draw(Image.new('RGB', (1, 1)))
         wrapped_first_para = wrap_text_with_markdown(first_line_without_cap, fonts, rest_max_width, temp_draw)
         
         y_current = y_text
         lines_beside_cap = 0
         
-        # Dibujar líneas al lado de la letra capital
         for line_content, _ in wrapped_first_para:
             if lines_beside_cap < DROP_CAP_LINES:
                 if line_content.strip():
@@ -433,10 +396,8 @@ def crear_pagina_cuento(
             else:
                 break
         
-        # Después de la letra capital, volver al margen normal
         y_text = y_text + DROP_CAP_LINES * line_spacing + paragraph_spacing
         
-        # Dibujar el resto del primer párrafo (si hay overflow)
         for i in range(lines_beside_cap, len(wrapped_first_para)):
             line_content, _ = wrapped_first_para[i]
             if y_text > max_height:
@@ -445,7 +406,6 @@ def crear_pagina_cuento(
                                max_width_px=max_width_px)
             y_text += line_spacing
         
-        # Dibujar resto de líneas de la página (desde índice 1)
         for line, line_type in texto_pagina[1:]:
             if y_text > max_height:
                 break
@@ -458,7 +418,6 @@ def crear_pagina_cuento(
                                max_width_px=max_width_px)
             y_text += line_spacing
     else:
-        # Páginas siguientes: sin letra capital
         for line, line_type in texto_pagina:
             if y_text > max_height:
                 break
@@ -471,7 +430,7 @@ def crear_pagina_cuento(
                                max_width_px=max_width_px)
             y_text += line_spacing
     
-    # NÚMERO DE PÁGINA (abajo a la derecha)
+    # NÚMERO DE PÁGINA
     if total_paginas > 1:
         page_text = f"{numero_pagina}"
         bbox_page = draw.textbbox((0, 0), page_text, font=font_page_number)
@@ -481,27 +440,18 @@ def crear_pagina_cuento(
         
         draw.text((page_x, page_y), page_text, font=font_page_number, fill='#999999')
     
-    # Borde decorativo
     if estilo == "infantil":
         draw_wavy_border(draw, a4_width, a4_height)
     
     return canvas
 
 def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
-    """
-    Convierte una lista de imágenes PIL a un PDF multipágina.
-    
-    Args:
-        imagenes: Lista de imágenes PIL (RGB)
-        output_path: Ruta donde guardar el PDF
-    """
+    """Convierte una lista de imágenes PIL a un PDF multipágina."""
     if not imagenes:
         raise ValueError("No hay imágenes para convertir a PDF")
     
-    # Convertir todas a RGB si no lo están
     imagenes_rgb = [img.convert('RGB') if img.mode != 'RGB' else img for img in imagenes]
     
-    # Guardar como PDF multipágina
     imagenes_rgb[0].save(
         output_path,
         save_all=True,
@@ -512,72 +462,64 @@ def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
     
     logger.info(f"✅ PDF creado con {len(imagenes)} páginas: {output_path}")
 
-
-
 # ============================================================================
-# 🆕 ENDPOINT NUEVO: COMBINAR DOCUMENTOS
+# 🆕 ENDPOINT: COMBINAR DOCUMENTOS
 # ============================================================================
 
 @app.post("/combinar-documentos")
-async def combinar_documentos(rutas_archivos: List[str] = Form(...)):
+async def combinar_documentos(request: CombinarDocumentosRequest):
     """
     Combina múltiples imágenes PNG o PDFs en un solo PDF multipágina.
     
-    Args:
-        rutas_archivos: Lista de rutas de archivos a combinar (PNG o PDF)
-    
-    Returns:
-        PDF con todas las páginas combinadas
+    Body JSON:
+    {
+        "rutas_archivos": ["/tmp/file1.png", "/tmp/file2.png", "/tmp/file3.png"]
+    }
     """
-    logger.info(f"🔗 COMBINAR DOCUMENTOS: {len(rutas_archivos)} archivos")
+    logger.info(f"🔗 COMBINAR DOCUMENTOS: {len(request.rutas_archivos)} archivos")
     
     try:
-        if not rutas_archivos:
-            raise HTTPException(status_code=400, detail="No se proporcionaron archivos para combinar")
+        if not request.rutas_archivos:
+            raise HTTPException(status_code=400, detail="No se proporcionaron archivos")
         
         imagenes_combinadas = []
         
-        for i, ruta in enumerate(rutas_archivos):
-            logger.info(f"📄 Procesando archivo {i+1}/{len(rutas_archivos)}: {ruta}")
+        for i, ruta in enumerate(request.rutas_archivos):
+            logger.info(f"📄 Procesando {i+1}/{len(request.rutas_archivos)}: {ruta}")
             
-            # Verificar que el archivo existe
             if not os.path.exists(ruta):
                 logger.warning(f"⚠️ Archivo no encontrado: {ruta}")
                 continue
             
-            # Determinar tipo de archivo
             extension = os.path.splitext(ruta)[1].lower()
             
             if extension in ['.png', '.jpg', '.jpeg']:
-                # Cargar imagen directamente
                 img = Image.open(ruta)
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
                 imagenes_combinadas.append(img)
                 
             elif extension == '.pdf':
-                # Si es PDF, extraer páginas (requiere pdf2image)
                 try:
                     from pdf2image import convert_from_path
                     paginas_pdf = convert_from_path(ruta, dpi=300)
                     imagenes_combinadas.extend(paginas_pdf)
                 except ImportError:
-                    logger.error("❌ pdf2image no está instalado. Instala con: pip install pdf2image")
+                    logger.error("❌ pdf2image no instalado")
                     raise HTTPException(status_code=500, detail="pdf2image no disponible")
             else:
                 logger.warning(f"⚠️ Formato no soportado: {extension}")
         
         if not imagenes_combinadas:
-            raise HTTPException(status_code=400, detail="No se pudieron cargar imágenes válidas")
+            raise HTTPException(status_code=400, detail="No hay imágenes válidas")
         
-        # Crear PDF combinado
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"Cuento_Completo_{len(imagenes_combinadas)}pag_{timestamp}.pdf"
         output_path = f"/tmp/{filename}"
         
         imagenes_a_pdf(imagenes_combinadas, output_path)
         
-        logger.info(f"✅ Documentos combinados: {len(imagenes_combinadas)} páginas")
+        logger.info(f"✅ PDF combinado: {len(imagenes_combinadas)} páginas")
         
         return FileResponse(
             output_path,
@@ -585,20 +527,18 @@ async def combinar_documentos(rutas_archivos: List[str] = Form(...)):
             filename=filename,
             headers={
                 "X-Total-Pages": str(len(imagenes_combinadas)),
-                "X-Files-Combined": str(len(rutas_archivos))
+                "X-Files-Combined": str(len(request.rutas_archivos))
             }
         )
         
     except Exception as e:
-        logger.error(f"❌ Error combinando documentos: {str(e)}")
+        logger.error(f"❌ Error: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
 # ============================================================================
-# ENDPOINT PRINCIPAL MULTIPÁGINA
+# ENDPOINT: CREAR CUENTO MULTIPÁGINA
 # ============================================================================
 
 @app.post("/crear-cuento-multipagina")
@@ -609,31 +549,24 @@ async def crear_cuento_multipagina(
     header_height: int = Form(default=1150),
     estilo: str = Form(default="infantil"),
 ):
-    """
-    Crea un cuento de múltiples páginas automáticamente según la longitud del texto.
-    Genera un PDF con todas las páginas.
-    """
+    """Crea un cuento de múltiples páginas automáticamente."""
     logger.info(f"📚 CUENTO MULTIPÁGINA: {len(texto_cuento)} caracteres")
     
     try:
-        # Leer imagen
         img_bytes = await imagen.read()
         header_img = Image.open(io.BytesIO(img_bytes))
         
         if header_img.mode != 'RGB':
             header_img = header_img.convert('RGB')
         
-        # Configuración
         margin_left = 160
         margin_right = 160
         max_width_px = 2480 - margin_left - margin_right
         line_spacing = 80
         
-        # Calcular cuántas líneas caben por página
         lineas_por_pagina = calcular_lineas_por_pagina(header_height, line_spacing)
-        logger.info(f"📐 Calculadas ~{lineas_por_pagina} líneas por página")
+        logger.info(f"📐 ~{lineas_por_pagina} líneas por página")
         
-        # Preparar fuentes para cálculo de wrapping
         try:
             font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 52)
             font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 52)
@@ -648,7 +581,6 @@ async def crear_cuento_multipagina(
             'bold_italic': font_bold
         }
         
-        # Dividir texto en páginas
         temp_draw = ImageDraw.Draw(Image.new('RGB', (1, 1)))
         paginas_texto = dividir_texto_en_paginas(
             texto_cuento, 
@@ -659,9 +591,8 @@ async def crear_cuento_multipagina(
         )
         
         total_paginas = len(paginas_texto)
-        logger.info(f"📄 Se crearán {total_paginas} páginas")
+        logger.info(f"📄 {total_paginas} páginas")
         
-        # Generar cada página
         imagenes_paginas = []
         
         for i, texto_pagina in enumerate(paginas_texto):
@@ -681,7 +612,6 @@ async def crear_cuento_multipagina(
             
             imagenes_paginas.append(pagina_img)
         
-        # Crear PDF con todas las páginas
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         titulo_sanitizado = sanitize_filename(titulo) if titulo else "Sin_Titulo"
         filename = f"Cuento_{titulo_sanitizado}_{total_paginas}pag_{timestamp}.pdf"
@@ -689,9 +619,8 @@ async def crear_cuento_multipagina(
         output_path = f"/tmp/{filename}"
         imagenes_a_pdf(imagenes_paginas, output_path)
         
-        # Calcular palabras aproximadas
         palabras_aprox = len(texto_cuento.split())
-        logger.info(f"✅ Cuento creado: {total_paginas} páginas, ~{palabras_aprox} palabras")
+        logger.info(f"✅ Cuento: {total_paginas} pág, ~{palabras_aprox} palabras")
         
         return FileResponse(
             output_path, 
@@ -710,7 +639,7 @@ async def crear_cuento_multipagina(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================
-# ENDPOINT ORIGINAL (1 PÁGINA) - MANTENIDO PARA COMPATIBILIDAD
+# ENDPOINT: CREAR FICHA (1 PÁGINA)
 # ============================================================================
 
 @app.post("/crear-ficha")
@@ -721,15 +650,13 @@ async def crear_ficha(
     header_height: int = Form(default=1150),
     estilo: str = Form(default="infantil"),
 ):
-    """Endpoint original - crea UNA sola página (compatibilidad hacia atrás)"""
-    logger.info(f"📥 FICHA SIMPLE (1 página): {len(texto_cuento)} chars")
+    """Crea UNA sola página (compatibilidad)."""
+    logger.info(f"📥 FICHA SIMPLE: {len(texto_cuento)} chars")
     
-    # Truncar texto si es muy largo (advertencia)
     palabras = len(texto_cuento.split())
     if palabras > 270:
-        logger.warning(f"⚠️ Texto largo ({palabras} palabras). Considera usar /crear-cuento-multipagina")
+        logger.warning(f"⚠️ Texto largo ({palabras} palabras)")
     
-    # Usar la función de crear página única
     try:
         img_bytes = await imagen.read()
         header_img = Image.open(io.BytesIO(img_bytes))
@@ -737,7 +664,6 @@ async def crear_ficha(
         if header_img.mode != 'RGB':
             header_img = header_img.convert('RGB')
         
-        # Preparar texto como si fuera una sola página
         margin_left = 160
         margin_right = 160
         max_width_px = 2480 - margin_left - margin_right
@@ -759,7 +685,6 @@ async def crear_ficha(
         temp_draw = ImageDraw.Draw(Image.new('RGB', (1, 1)))
         texto_lines = wrap_text_with_markdown(texto_cuento, fonts, max_width_px, temp_draw)
         
-        # Crear una sola página
         pagina_img = crear_pagina_cuento(
             header_img=header_img,
             texto_pagina=texto_lines,
@@ -773,12 +698,12 @@ async def crear_ficha(
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         titulo_sanitizado = sanitize_filename(titulo) if titulo else "Sin_Titulo"
-        filename = f"Cuento_{titulo_sanitizado}_ficha_lectura_{timestamp}.png"
+        filename = f"Cuento_{titulo_sanitizado}_ficha_{timestamp}.png"
         
         output_path = f"/tmp/{filename}"
         pagina_img.save(output_path, quality=95, dpi=(300, 300))
         
-        logger.info(f"✅ Ficha simple creada: {filename}")
+        logger.info(f"✅ Ficha creada: {filename}")
         
         return FileResponse(output_path, media_type="image/png", filename=filename)
         
@@ -788,23 +713,23 @@ async def crear_ficha(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-# Tu endpoint de preguntas se mantiene igual...
-# (Copiar tu función crear_hoja_preguntas aquí si la necesitas)
+# ============================================================================
+# ENDPOINTS DE INFO
+# ============================================================================
 
 @app.get("/")
 def root():
     return {
         "status": "ok",
-        "version": "8.0-MULTIPAGINA",
-        "features": ["crear_cuento_multipagina", "crear_ficha", "crear_hoja_preguntas"],
+        "version": "9.0-COMBINAR",
+        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos"],
         "endpoints": {
-            "POST /crear-cuento-multipagina": "✨ NUEVO: Crea cuentos de 1-10+ páginas automáticamente (PDF)",
-            "POST /crear-ficha": "Crea ficha de 1 página (PNG) - original",
-            "POST /crear-hoja-preguntas": "Crea hoja de preguntas"
-        },
-        "message": "Cuento multipágina automático basado en longitud del texto"
+            "POST /crear-cuento-multipagina": "Crea cuentos multipágina automático (PDF)",
+            "POST /crear-ficha": "Crea ficha de 1 página (PNG)",
+            "POST /combinar-documentos": "🆕 Combina múltiples PNGs/PDFs en un PDF"
+        }
     }
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "version": "8.0-MULTIPAGINA"}
+    return {"status": "healthy", "version": "9.0-COMBINAR"}
