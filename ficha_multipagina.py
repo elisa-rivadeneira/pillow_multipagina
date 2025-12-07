@@ -705,7 +705,14 @@ async def crear_ficha(
         
         logger.info(f"✅ Ficha creada: {filename}")
         
-        return FileResponse(output_path, media_type="image/png", filename=filename)
+        return FileResponse(
+            output_path,
+            media_type="image/png",
+            filename=filename,
+            headers={
+                "rutas_archivos": output_path
+            }
+        )
         
     except Exception as e:
         logger.error(f"❌ Error: {str(e)}")
