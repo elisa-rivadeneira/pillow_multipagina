@@ -394,7 +394,7 @@ def combinar_fondo_personaje(fondo_img: Image.Image, personaje_img: Image.Image,
             personaje_y = 80
         elif mejor_zona == 'inferior_izq':
             personaje_x, personaje_y = 80, header_height - personaje_height - 60
-        else:  # inferior_der o centro
+        else:  # inferior_der o centrom
             personaje_x = a4_width - personaje_width - 120
             personaje_y = header_height - personaje_height - 60
 
@@ -554,23 +554,30 @@ def crear_fondo_completo_epico(fondo_img: Image.Image, personaje_img: Image.Imag
 
     return resultado.convert('RGB')
 
-def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='#2C3E50', max_width=None):
-    """📝 Dibuja texto con sombra blanca para máxima legibilidad sobre fondos complejos."""
+def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='black', max_width=None):
+    """📝 Dibuja texto con SOMBRA BLANCA EXTENSA para máxima legibilidad sobre fondos complejos."""
 
-    # Sombra blanca múltiple para máximo contraste
-    sombra_offsets = [
-        (-3, -3), (-3, 0), (-3, 3),
-        (0, -3), (0, 3),
-        (3, -3), (3, 0), (3, 3),
-        # Sombra adicional para más contraste
-        (-2, -2), (-2, 2), (2, -2), (2, 2)
+    # ============ SOMBRA BLANCA SÚPER EXTENSA ============
+    # Crear múltiples capas de sombra blanca con diferentes intensidades
+    sombra_layers = [
+        # Capa 1: Sombra más lejana (más sutil)
+        {'offsets': [(-8, -8), (-8, 0), (-8, 8), (0, -8), (0, 8), (8, -8), (8, 0), (8, 8)], 'color': 'rgba(255,255,255,180)'},
+        # Capa 2: Sombra media
+        {'offsets': [(-6, -6), (-6, 0), (-6, 6), (0, -6), (0, 6), (6, -6), (6, 0), (6, 6)], 'color': 'rgba(255,255,255,200)'},
+        # Capa 3: Sombra cercana (más intensa)
+        {'offsets': [(-4, -4), (-4, 0), (-4, 4), (0, -4), (0, 4), (4, -4), (4, 0), (4, 4)], 'color': 'white'},
+        # Capa 4: Sombra muy cercana (máxima intensidad)
+        {'offsets': [(-2, -2), (-2, 0), (-2, 2), (0, -2), (0, 2), (2, -2), (2, 0), (2, 2)], 'color': 'white'},
+        # Capa 5: Sombra inmediata
+        {'offsets': [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)], 'color': 'white'}
     ]
 
-    # Dibujar sombras blancas
-    for offset_x, offset_y in sombra_offsets:
-        draw.text((x + offset_x, y + offset_y), texto, font=font, fill='white')
+    # Dibujar todas las capas de sombra
+    for layer in sombra_layers:
+        for offset_x, offset_y in layer['offsets']:
+            draw.text((x + offset_x, y + offset_y), texto, font=font, fill=layer['color'])
 
-    # Dibujar texto principal
+    # ============ TEXTO PRINCIPAL NEGRO ============
     if max_width:
         return draw_formatted_line(draw, x, y, texto, {'normal': font}, color_texto, max_width)
     else:
@@ -1080,15 +1087,22 @@ async def crear_ficha(
             canvas = crear_fondo_completo_epico(fondo_img, personaje_img, a4_width, a4_height, numero_pagina)
             draw = ImageDraw.Draw(canvas)
 
-            # Cargar fuentes MÁS GRANDES para mejor legibilidad
+            # Cargar fuentes INFANTILES GIGANTES para máxima legibilidad
             try:
-                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 72)  # Era 58 → Ahora 72
-                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
-                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 140)  # Era 120 → Ahora 140
+                # Intentar fuentes más infantiles/redondeadas primero
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 85)
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 85)
+                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 160)
             except:
-                font_normal = ImageFont.load_default()
-                font_bold = ImageFont.load_default()
-                font_titulo = ImageFont.load_default()
+                try:
+                    # Fallback a DejaVu pero más redondeado
+                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 85)
+                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 85)
+                    font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 160)  # Sans en lugar de Serif
+                except:
+                    font_normal = ImageFont.load_default()
+                    font_bold = ImageFont.load_default()
+                    font_titulo = ImageFont.load_default()
 
             # TÍTULO con sombra blanca épica (solo primera página)
             if es_primera_pagina and titulo:
