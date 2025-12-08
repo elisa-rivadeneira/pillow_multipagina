@@ -567,32 +567,36 @@ def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='black', m
         text_width = len(texto) * 20
         text_height = 50
 
-    # Crear canvas temporal más grande para el blur
-    blur_margin = 30
+    # Crear canvas temporal MÁS GRANDE para blur extenso tipo nube
+    blur_margin = 50  # Era 30 → Ahora 50 (nube más grande)
     temp_width = text_width + (blur_margin * 2)
     temp_height = text_height + (blur_margin * 2)
 
-    # Crear imagen temporal para la sombra
-    sombra_img = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
-    sombra_draw = ImageDraw.Draw(sombra_img)
+    # ============ CREAR SOMBRA BLANCA INTENSA TIPO NUBE ============
 
-    # ============ CREAR MÚLTIPLES CAPAS DE SOMBRA DIFUMINADA ============
+    # Capa 1: Nube base SÚPER difuminada y extensa
+    sombra_img1 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
+    sombra_draw1 = ImageDraw.Draw(sombra_img1)
+    sombra_draw1.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
+    sombra_blur1 = sombra_img1.filter(ImageFilter.GaussianBlur(radius=20))  # Era 12 → Ahora 20 (nube GIGANTE)
 
-    # Capa 1: Sombra base muy difuminada (más extensa)
-    sombra_draw.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur1 = sombra_img.filter(ImageFilter.GaussianBlur(radius=12))  # Blur grande
-
-    # Capa 2: Sombra media
+    # Capa 2: Nube media INTENSA
     sombra_img2 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
     sombra_draw2 = ImageDraw.Draw(sombra_img2)
     sombra_draw2.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur2 = sombra_img2.filter(ImageFilter.GaussianBlur(radius=8))  # Blur medio
+    sombra_blur2 = sombra_img2.filter(ImageFilter.GaussianBlur(radius=15))  # Era 8 → Ahora 15
 
-    # Capa 3: Sombra cercana
+    # Capa 3: Nube cercana para densidad
     sombra_img3 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
     sombra_draw3 = ImageDraw.Draw(sombra_img3)
     sombra_draw3.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur3 = sombra_img3.filter(ImageFilter.GaussianBlur(radius=4))  # Blur pequeño
+    sombra_blur3 = sombra_img3.filter(ImageFilter.GaussianBlur(radius=10))  # Era 4 → Ahora 10
+
+    # Capa 4: Nube muy cercana para mayor intensidad
+    sombra_img4 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
+    sombra_draw4 = ImageDraw.Draw(sombra_img4)
+    sombra_draw4.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
+    sombra_blur4 = sombra_img4.filter(ImageFilter.GaussianBlur(radius=5))  # Capa adicional
 
     # ============ COMBINAR CAPAS DE SOMBRA ============
     # Crear canvas final para pegar las sombras
@@ -602,21 +606,23 @@ def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='black', m
     paste_x = max(0, x - blur_margin)
     paste_y = max(0, y - blur_margin)
 
-    # Pegar las capas de sombra (de más difusa a menos difusa)
+    # Pegar las capas de sombra BLANCA INTENSA (de más difusa a menos difusa)
     try:
-        canvas_img.paste(sombra_blur1, (paste_x, paste_y), sombra_blur1)
-        canvas_img.paste(sombra_blur2, (paste_x, paste_y), sombra_blur2)
-        canvas_img.paste(sombra_blur3, (paste_x, paste_y), sombra_blur3)
+        canvas_img.paste(sombra_blur1, (paste_x, paste_y), sombra_blur1)  # Nube base gigante
+        canvas_img.paste(sombra_blur2, (paste_x, paste_y), sombra_blur2)  # Nube media
+        canvas_img.paste(sombra_blur3, (paste_x, paste_y), sombra_blur3)  # Nube densa
+        canvas_img.paste(sombra_blur4, (paste_x, paste_y), sombra_blur4)  # Nube intensa
     except:
-        # Fallback: usar el método anterior si hay problemas
-        offsets = [(-6, -6), (-6, 0), (-6, 6), (0, -6), (0, 6), (6, -6), (6, 0), (6, 6),
-                  (-4, -4), (-4, 0), (-4, 4), (0, -4), (0, 4), (4, -4), (4, 0), (4, 4),
-                  (-2, -2), (-2, 0), (-2, 2), (0, -2), (0, 2), (2, -2), (2, 0), (2, 2)]
+        # Fallback: sombra blanca extensa si hay problemas
+        offsets = [(-15, -15), (-15, 0), (-15, 15), (0, -15), (0, 15), (15, -15), (15, 0), (15, 15),
+                  (-10, -10), (-10, 0), (-10, 10), (0, -10), (0, 10), (10, -10), (10, 0), (10, 10),
+                  (-5, -5), (-5, 0), (-5, 5), (0, -5), (0, 5), (5, -5), (5, 0), (5, 5),
+                  (-3, -3), (-3, 0), (-3, 3), (0, -3), (0, 3), (3, -3), (3, 0), (3, 3)]
         for offset_x, offset_y in offsets:
             draw.text((x + offset_x, y + offset_y), texto, font=font, fill='white')
 
-    # ============ TEXTO PRINCIPAL NEGRO ============
-    draw.text((x, y), texto, font=font, fill=color_texto)
+    # ============ TEXTO PRINCIPAL NEGRO SÓLIDO ============
+    draw.text((x, y), texto, font=font, fill='black')  # NEGRO FORZADO
 
     try:
         return draw.textlength(texto, font=font)
