@@ -424,6 +424,40 @@ def combinar_fondo_personaje(fondo_img: Image.Image, personaje_img: Image.Image,
 
     return resultado.convert('RGB')
 
+def crear_fondo_solo_imagen(fondo_img: Image.Image, a4_width: int, a4_height: int) -> Image.Image:
+    """🖼️ FONDO SIMPLE - Solo ajusta la imagen completa al tamaño A4 sin agregar personajes."""
+
+    logger.info(f"🖼️ Creando fondo simple: {a4_width}x{a4_height}")
+
+    # ============ 1. FONDO AJUSTADO A A4 COMPLETO ============
+    fondo_aspect = fondo_img.width / fondo_img.height
+    page_aspect = a4_width / a4_height
+
+    if fondo_aspect < page_aspect:
+        # Imagen más alta que la página - ajustar por ancho
+        new_width = a4_width
+        new_height = int(a4_width / fondo_aspect)
+        fondo_resized = fondo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        # Centrar verticalmente
+        y_offset = (new_height - a4_height) // 2
+        fondo_final = fondo_resized.crop((0, y_offset, a4_width, y_offset + a4_height))
+    else:
+        # Imagen más ancha que la página - ajustar por altura
+        new_height = a4_height
+        new_width = int(a4_height * fondo_aspect)
+        fondo_resized = fondo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        # Centrar horizontalmente
+        x_offset = (new_width - a4_width) // 2
+        fondo_final = fondo_resized.crop((x_offset, 0, x_offset + a4_width, a4_height))
+
+    # Verificar que el fondo final sea exactamente A4
+    if fondo_final.size != (a4_width, a4_height):
+        logger.warning(f"⚠️ Redimensionando fondo a A4: {fondo_final.size} → {a4_width}x{a4_height}")
+        fondo_final = fondo_final.resize((a4_width, a4_height), Image.Resampling.LANCZOS)
+
+    logger.info(f"🖼️ Fondo simple creado correctamente")
+    return fondo_final.convert('RGB')
+
 def crear_fondo_completo_epico(fondo_img: Image.Image, personaje_img: Image.Image, a4_width: int, a4_height: int, numero_pagina: int = 1) -> Image.Image:
     """🎬 ESTILO FONDO COMPLETO - Fondo ocupa toda la página, personaje grande estilo WOW cinematográfico."""
 
@@ -1086,16 +1120,16 @@ async def crear_ficha(
         logger.warning(f"⚠️ Texto largo ({palabras} palabras)")
 
     try:
-        # Procesar imagen fondo
+        # Procesar imagen fondo (YA INCLUYE TODO: fondo + personajes integrados)
         fondo_bytes = await imagen_fondo.read()
         fondo_img = Image.open(io.BytesIO(fondo_bytes))
         if fondo_img.mode != 'RGB':
             fondo_img = fondo_img.convert('RGB')
 
-        # Procesar imagen personaje y remover fondo blanco
-        personaje_bytes = await imagen_personaje.read()
-        personaje_img = Image.open(io.BytesIO(personaje_bytes))
-        personaje_img = remover_fondo_blanco(personaje_img)
+        # YA NO PROCESAMOS PERSONAJE SEPARADO - La imagen viene completa desde n8n
+        # personaje_bytes = await imagen_personaje.read()
+        # personaje_img = Image.open(io.BytesIO(personaje_bytes))
+        # personaje_img = remover_fondo_blanco(personaje_img)
 
         # ============ ELEGIR TIPO DE COMPOSICIÓN ============
         a4_width = 2480
@@ -1105,21 +1139,21 @@ async def crear_ficha(
             # 🎬 ESTILO FONDO COMPLETO - Página completa épica
             logger.info(f"🎬 Creando estilo FONDO COMPLETO épico")
 
-            # Crear fondo completo con personaje grande (YA ES LA PÁGINA COMPLETA)
-            canvas = crear_fondo_completo_epico(fondo_img, personaje_img, a4_width, a4_height, numero_pagina)
+            # Crear fondo completo SIN PERSONAJE - La imagen ya viene integrada desde n8n
+            canvas = crear_fondo_solo_imagen(fondo_img, a4_width, a4_height)
             draw = ImageDraw.Draw(canvas)
 
             # Cargar fuentes MÁS GRANDES para mejor legibilidad infantil
             try:
                 # Fuentes más grandes para niños
-                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 72)  # Tamaño elegante para lectura cómoda
-                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 58)  # Tamaño más compacto
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 58)
                 font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
             except:
                 try:
                     # Intentar fuentes serif/manuscritas como fallback - MÁS GRANDES
-                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 72)  # Serif elegante
-                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 72)
+                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 58)  # Serif compacto
+                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 58)
                     font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
                 except:
                     font_normal = ImageFont.load_default()
@@ -1142,16 +1176,16 @@ async def crear_ficha(
 
             # NUEVO: Ancho de texto ajustado a la burbuja armónica (80% de hoja)
             margin_horizontal = a4_width * 0.1  # 10% margen cada lado
-            bubble_padding_text = 35  # PADDING ELEGANTE igual al de la burbuja
+            bubble_padding_text = 45  # PADDING MAYOR igual al de la burbuja
             max_width_texto = (a4_width * 0.8) - (bubble_padding_text * 2)  # Ancho dentro de la burbuja
 
             # ============ POSICIONAMIENTO FIJO: SIEMPRE ABAJO ============
             # Texto SIEMPRE en la parte inferior para que la imagen principal esté arriba
-            margen_inferior = 120  # Margen para que no esté pegado al borde
+            margen_inferior = 180  # MARGEN MAYOR para que no esté pegado al borde
             zona_texto = {
                 'x_start': margin_horizontal,  # Alineado con la burbuja del 80%
                 'x_end': margin_horizontal + (a4_width * 0.8),  # 80% del ancho
-                'y_start': 1800,  # Zona inferior fija
+                'y_start': 1900,  # Zona inferior fija (un poco más abajo)
                 'y_end': a4_height - margen_inferior,  # Hasta el final menos margen
                 'nombre': 'inferior-fijo'
             }
@@ -1206,7 +1240,7 @@ async def crear_ficha(
             # ============ CREAR BURBUJA GRANDE ARMONIOSAMENTE ANCHA ============
             if todas_las_lineas:
                 # Calcular dimensiones de la burbuja - ANCHO ARMÓNICO 80% DE LA HOJA
-                bubble_padding = 35  # Padding ELEGANTE para espaciado cómodo
+                bubble_padding = 45  # PADDING MAYOR para letra más pequeña
                 bubble_radius = 35   # Esquinas más redondeadas estilo burbuja de diálogo
 
                 # ANCHO FIJO: 80% del ancho de la página (20% márgenes total = 10% cada lado)
