@@ -188,19 +188,14 @@ def draw_wavy_border(draw, a4_width, a4_height):
         draw.ellipse([x, wave_y_bottom - 5, x + 10, wave_y_bottom + 5], fill=colors[x % len(colors)])
 
 def detectar_espacios_libres(img: Image.Image) -> list:
-    """Detecta zonas de la imagen con menos detalle/contenido para posicionar personajes."""
-    import numpy as np
-    from PIL import ImageFilter
+    """🔍 Detecta zonas de la imagen con menos detalle para posicionar personajes (versión optimizada PIL)."""
+    from PIL import ImageFilter, ImageStat
 
-    # Convertir a numpy para análisis
-    img_gray = img.convert('L')
-    img_array = np.array(img_gray)
+    # Detectar bordes para encontrar zonas con menos detalle
+    edges = img.filter(ImageFilter.EDGE_ENHANCE_MORE).convert('L')
 
-    # Detectar bordes (zonas con mucho detalle)
-    edges = np.array(img.filter(ImageFilter.EDGE_ENHANCE_MORE).convert('L'))
-
-    # Dividir imagen en cuadrantes y analizar densidad
-    h, w = img_array.shape
+    # Definir cuadrantes estratégicos
+    w, h = img.size
     cuadrantes = {
         'superior_izq': (0, 0, w//2, h//2),
         'superior_der': (w//2, 0, w, h//2),
@@ -211,11 +206,13 @@ def detectar_espacios_libres(img: Image.Image) -> list:
 
     espacios_libres = []
     for zona, (x1, y1, x2, y2) in cuadrantes.items():
-        region_edges = edges[y1:y2, x1:x2]
-        densidad = np.mean(region_edges)
+        # Recortar región y calcular densidad de bordes
+        region = edges.crop((x1, y1, x2, y2))
+        stats = ImageStat.Stat(region)
+        densidad = stats.mean[0]  # Promedio de intensidad (0-255)
         espacios_libres.append((zona, densidad, (x1, y1, x2, y2)))
 
-    # Ordenar por menos densidad (más espacio libre)
+    # Ordenar por menos densidad (valores más bajos = menos detalle = mejor para personaje)
     return sorted(espacios_libres, key=lambda x: x[1])
 
 def aplicar_efectos_visuales(img: Image.Image, personaje_pos: tuple, personaje_size: tuple) -> Image.Image:
