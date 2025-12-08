@@ -427,7 +427,9 @@ def combinar_fondo_personaje(fondo_img: Image.Image, personaje_img: Image.Image,
 def crear_fondo_completo_epico(fondo_img: Image.Image, personaje_img: Image.Image, a4_width: int, a4_height: int, numero_pagina: int = 1) -> Image.Image:
     """🎬 ESTILO FONDO COMPLETO - Fondo ocupa toda la página, personaje grande estilo WOW cinematográfico."""
 
-    # ============ 1. FONDO GIGANTE TODA LA PÁGINA ============
+    logger.info(f"🎬 Creando fondo completo: {a4_width}x{a4_height}")
+
+    # ============ 1. FONDO GIGANTE TODA LA PÁGINA A4 COMPLETA ============
     fondo_aspect = fondo_img.width / fondo_img.height
     page_aspect = a4_width / a4_height
 
@@ -447,6 +449,11 @@ def crear_fondo_completo_epico(fondo_img: Image.Image, personaje_img: Image.Imag
         # Centrar horizontalmente
         x_offset = (new_width - a4_width) // 2
         fondo_final = fondo_resized.crop((x_offset, 0, x_offset + a4_width, a4_height))
+
+    # Verificar que el fondo final sea exactamente A4
+    if fondo_final.size != (a4_width, a4_height):
+        logger.warning(f"⚠️ Redimensionando fondo a A4: {fondo_final.size} → {a4_width}x{a4_height}")
+        fondo_final = fondo_final.resize((a4_width, a4_height), Image.Resampling.LANCZOS)
 
     # ============ 2. POSICIONAMIENTO DINÁMICO DEL PERSONAJE ============
     personaje_scales = [0.7, 0.6, 0.65, 0.75, 0.8]  # Escalas grandes épicas
