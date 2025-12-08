@@ -554,90 +554,61 @@ def crear_fondo_completo_epico(fondo_img: Image.Image, personaje_img: Image.Imag
 
     return resultado.convert('RGB')
 
-def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='black', max_width=None):
-    """📝 Dibuja texto con SOMBRA DIFUMINADA tipo NUBE para máxima legibilidad."""
-    from PIL import ImageFilter
+def crear_burbuja_texto(draw, x, y, texto, font, color_texto='white'):
+    """💬 Crea una burbuja semitransparente elegante para texto legible."""
 
-    # Calcular tamaño del texto para crear canvas temporal
+    # Calcular dimensiones del texto
     try:
         bbox = draw.textbbox((0, 0), texto, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
     except:
-        text_width = len(texto) * 20
-        text_height = 50
+        text_width = len(texto) * 15
+        text_height = 30
 
-    # Crear canvas temporal MÁS GRANDE para blur extenso tipo nube
-    blur_margin = 50  # Era 30 → Ahora 50 (nube más grande)
-    temp_width = text_width + (blur_margin * 2)
-    temp_height = text_height + (blur_margin * 2)
+    # Configurar burbuja
+    padding = 15  # Espacio interno alrededor del texto
+    border_radius = 12  # Radio para esquinas redondeadas
 
-    # ============ CREAR SOMBRA BLANCA INTENSA TIPO NUBE ============
+    # Dimensiones de la burbuja
+    bubble_x = x - padding
+    bubble_y = y - padding
+    bubble_width = text_width + (padding * 2)
+    bubble_height = text_height + (padding * 2)
 
-    # ============ RESPLANDOR BLANCO SÚPER INTENSO ============
+    # ============ CREAR BURBUJA SEMITRANSPARENTE ============
+    # Color de fondo semitransparente (negro con 70% opacidad)
+    bubble_color = (0, 0, 0, 180)  # RGBA: Negro con alpha 180/255
 
-    # Capa 1: Resplandor base GIGANTE
-    sombra_img1 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
-    sombra_draw1 = ImageDraw.Draw(sombra_img1)
-    sombra_draw1.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur1 = sombra_img1.filter(ImageFilter.GaussianBlur(radius=25))  # Era 20 → Ahora 25 (resplandor MASIVO)
+    # Crear imagen temporal para la burbuja
+    bubble_img = Image.new('RGBA', (int(bubble_width), int(bubble_height)), (0, 0, 0, 0))
+    bubble_draw = ImageDraw.Draw(bubble_img)
 
-    # Capa 2: Resplandor medio MUY INTENSO
-    sombra_img2 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
-    sombra_draw2 = ImageDraw.Draw(sombra_img2)
-    sombra_draw2.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur2 = sombra_img2.filter(ImageFilter.GaussianBlur(radius=18))  # Era 15 → Ahora 18
+    # Dibujar rectángulo redondeado
+    bubble_draw.rounded_rectangle(
+        [0, 0, bubble_width, bubble_height],
+        radius=border_radius,
+        fill=bubble_color
+    )
 
-    # Capa 3: Resplandor denso
-    sombra_img3 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
-    sombra_draw3 = ImageDraw.Draw(sombra_img3)
-    sombra_draw3.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur3 = sombra_img3.filter(ImageFilter.GaussianBlur(radius=12))  # Era 10 → Ahora 12
-
-    # Capa 4: Resplandor cercano SÚPER INTENSO
-    sombra_img4 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
-    sombra_draw4 = ImageDraw.Draw(sombra_img4)
-    sombra_draw4.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur4 = sombra_img4.filter(ImageFilter.GaussianBlur(radius=7))  # Era 5 → Ahora 7
-
-    # Capa 5: Resplandor inmediato para máxima intensidad
-    sombra_img5 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
-    sombra_draw5 = ImageDraw.Draw(sombra_img5)
-    sombra_draw5.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur5 = sombra_img5.filter(ImageFilter.GaussianBlur(radius=3))  # Capa adicional muy cercana
-
-    # ============ COMBINAR CAPAS DE SOMBRA ============
-    # Crear canvas final para pegar las sombras
-    canvas_img = draw._image if hasattr(draw, '_image') else Image.new('RGBA', (draw.im.size), (0, 0, 0, 0))
-
-    # Calcular posición para pegar las sombras
-    paste_x = max(0, x - blur_margin)
-    paste_y = max(0, y - blur_margin)
-
-    # Pegar las capas de RESPLANDOR BLANCO MASIVO (de más difusa a menos difusa)
+    # Obtener la imagen base para pegar la burbuja
     try:
-        canvas_img.paste(sombra_blur1, (paste_x, paste_y), sombra_blur1)  # Resplandor base gigante
-        canvas_img.paste(sombra_blur2, (paste_x, paste_y), sombra_blur2)  # Resplandor medio
-        canvas_img.paste(sombra_blur3, (paste_x, paste_y), sombra_blur3)  # Resplandor denso
-        canvas_img.paste(sombra_blur4, (paste_x, paste_y), sombra_blur4)  # Resplandor cercano
-        canvas_img.paste(sombra_blur5, (paste_x, paste_y), sombra_blur5)  # Resplandor inmediato INTENSO
+        canvas_img = draw._image if hasattr(draw, '_image') else None
+        if canvas_img:
+            canvas_img.paste(bubble_img, (int(bubble_x), int(bubble_y)), bubble_img)
     except:
-        # Fallback: sombra blanca extensa si hay problemas
-        offsets = [(-15, -15), (-15, 0), (-15, 15), (0, -15), (0, 15), (15, -15), (15, 0), (15, 15),
-                  (-10, -10), (-10, 0), (-10, 10), (0, -10), (0, 10), (10, -10), (10, 0), (10, 10),
-                  (-5, -5), (-5, 0), (-5, 5), (0, -5), (0, 5), (5, -5), (5, 0), (5, 5),
-                  (-3, -3), (-3, 0), (-3, 3), (0, -3), (0, 3), (3, -3), (3, 0), (3, 3)]
-        for offset_x, offset_y in offsets:
-            draw.text((x + offset_x, y + offset_y), texto, font=font, fill='white')
+        # Fallback: dibujar rectángulo simple si hay problemas
+        draw.rectangle([bubble_x, bubble_y, bubble_x + bubble_width, bubble_y + bubble_height],
+                      fill=(0, 0, 0, 180))
 
-    # ============ TEXTO PRINCIPAL BLANCO INTENSO ============
-    draw.text((x, y), texto, font=font, fill='white')  # BLANCO para resplandor total
+    # ============ DIBUJAR TEXTO BLANCO LIMPIO ============
+    draw.text((x, y), texto, font=font, fill=color_texto)
 
-    try:
-        return draw.textlength(texto, font=font)
-    except AttributeError:
-        bbox = draw.textbbox((0, 0), texto, font=font)
-        return bbox[2] - bbox[0]
+    return text_width
+
+def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='white', max_width=None):
+    """💬 Dibuja texto en burbuja semitransparente elegante."""
+    return crear_burbuja_texto(draw, x, y, texto, font, color_texto)
 
 # ============================================================================
 # FUNCIONES PARA MULTIPÁGINA
