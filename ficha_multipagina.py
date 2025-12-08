@@ -1142,7 +1142,7 @@ async def crear_ficha(
 
             # NUEVO: Ancho de texto ajustado a la burbuja armónica (80% de hoja)
             margin_horizontal = a4_width * 0.1  # 10% margen cada lado
-            bubble_padding_text = 40  # Mismo padding que la burbuja
+            bubble_padding_text = 25  # PADDING REDUCIDO igual al de la burbuja
             max_width_texto = (a4_width * 0.8) - (bubble_padding_text * 2)  # Ancho dentro de la burbuja
 
             # ============ DETECTAR POSICIÓN DEL PERSONAJE ============
@@ -1193,8 +1193,8 @@ async def crear_ficha(
             # Procesar todo el texto y dividirlo en líneas
             paragrafos = texto_cuento.strip().split('\n\n')
             todas_las_lineas = []
-            # Calcular líneas disponibles con nuevo interlineado
-            max_lines = int((texto_y_end - texto_y_start) / line_spacing) + 1  # +1 para aprovechar mejor el espacio
+            # Calcular líneas disponibles con nuevo interlineado - MÁS LÍNEAS
+            max_lines = int((texto_y_end - texto_y_start) / line_spacing) + 3  # +3 para FORZAR más líneas y llenar burbuja
 
             for parrafo in paragrafos:
                 if len(todas_las_lineas) >= max_lines:
@@ -1211,7 +1211,7 @@ async def crear_ficha(
                         bbox = draw.textbbox((0, 0), test_line, font=font_normal)
                         test_width = bbox[2] - bbox[0]
 
-                    if test_width <= max_width_texto:  # Ya no necesita margen extra
+                    if test_width <= max_width_texto * 0.95:  # Usar 95% del ancho para forzar más líneas
                         linea_actual.append(palabra)
                     else:
                         if linea_actual:
@@ -1228,7 +1228,7 @@ async def crear_ficha(
             # ============ CREAR BURBUJA GRANDE ARMONIOSAMENTE ANCHA ============
             if todas_las_lineas:
                 # Calcular dimensiones de la burbuja - ANCHO ARMÓNICO 80% DE LA HOJA
-                bubble_padding = 40  # Padding más generoso estilo Disney/Pixar
+                bubble_padding = 25  # Padding REDUCIDO para aprovechar mejor el espacio
                 bubble_radius = 35   # Esquinas más redondeadas estilo burbuja de diálogo
 
                 # ANCHO FIJO: 80% del ancho de la página (20% márgenes total = 10% cada lado)
@@ -1269,7 +1269,7 @@ async def crear_ficha(
                     )
 
                 # ============ DIBUJAR TEXTO NEGRO ELEGANTE CENTRADO ============
-                # Centrar texto dentro de la burbuja armónica
+                # Centrar texto dentro de la burbuja armónica con padding reducido
                 texto_x_centrado = margin_horizontal + bubble_padding
                 current_y = texto_y_start
 
