@@ -1101,20 +1101,74 @@ async def crear_ficha(
 
                 draw_texto_con_sombra_blanca(draw, title_x, title_y, titulo_capitalizado, font_titulo, '#FFD700')
 
-            # TEXTO con sombra blanca - área libre central
-            texto_y_start = 1800  # Zona central/inferior libre
-            line_spacing = 90
-            margin_left = 200
-            margin_right = 200
+            # TEXTO con sombra blanca - buscar mejor zona libre
+            line_spacing = 75
+            margin_left = 150
+            margin_right = 150
             max_width_texto = a4_width - margin_left - margin_right
 
-            lineas = texto_cuento.split('\n')
-            current_y = texto_y_start
+            # Detectar zona más libre para el texto
+            zonas_texto = [
+                {'y_start': 400, 'y_end': 1200, 'nombre': 'superior'},      # Zona superior
+                {'y_start': 1200, 'y_end': 2200, 'nombre': 'media'},        # Zona media
+                {'y_start': 2200, 'y_end': 3200, 'nombre': 'inferior'}      # Zona inferior
+            ]
 
-            for linea in lineas[:6]:  # Máximo 6 líneas para que se vea bien
-                if linea.strip() and current_y < a4_height - 200:
-                    draw_texto_con_sombra_blanca(draw, margin_left, current_y, linea.strip(), font_normal)
+            # Usar zona media como default (generalmente más libre)
+            zona_elegida = zonas_texto[1]
+            texto_y_start = zona_elegida['y_start'] + 100
+            texto_y_end = zona_elegida['y_end'] - 100
+
+            logger.info(f"📝 Zona de texto: {zona_elegida['nombre']} ({texto_y_start}-{texto_y_end})")
+
+            # Dividir texto en párrafos y procesar línea por línea
+            paragrafos = texto_cuento.strip().split('\n\n')
+            current_y = texto_y_start
+            max_lines = int((texto_y_end - texto_y_start) / line_spacing)
+
+            lines_used = 0
+            for i, parrafo in enumerate(paragrafos):
+                if lines_used >= max_lines - 1:
+                    break
+
+                # Dividir párrafo en líneas que quepan en el ancho
+                palabras = parrafo.split()
+                linea_actual = []
+
+                for palabra in palabras:
+                    test_line = ' '.join(linea_actual + [palabra])
+                    try:
+                        test_width = draw.textlength(test_line, font=font_normal)
+                    except AttributeError:
+                        bbox = draw.textbbox((0, 0), test_line, font=font_normal)
+                        test_width = bbox[2] - bbox[0]
+
+                    if test_width <= max_width_texto - 100:  # Margen extra para sombras
+                        linea_actual.append(palabra)
+                    else:
+                        # Dibujar línea actual
+                        if linea_actual and current_y <= texto_y_end:
+                            linea_text = ' '.join(linea_actual)
+                            draw_texto_con_sombra_blanca(draw, margin_left, current_y, linea_text, font_normal)
+                            current_y += line_spacing
+                            lines_used += 1
+
+                        # Empezar nueva línea
+                        linea_actual = [palabra]
+
+                # Dibujar línea final del párrafo
+                if linea_actual and current_y <= texto_y_end and lines_used < max_lines:
+                    linea_text = ' '.join(linea_actual)
+                    draw_texto_con_sombra_blanca(draw, margin_left, current_y, linea_text, font_normal)
                     current_y += line_spacing
+                    lines_used += 1
+
+                # Espacio entre párrafos
+                if i < len(paragrafos) - 1 and lines_used < max_lines - 1:
+                    current_y += line_spacing * 0.5
+                    lines_used += 0.5
+
+            logger.info(f"📝 Texto renderizado: {lines_used:.1f}/{max_lines} líneas")
 
             # Número de página
             if total_paginas > 1:
