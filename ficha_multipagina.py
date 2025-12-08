@@ -1102,7 +1102,7 @@ async def crear_cuento_multipagina(
 @app.post("/crear-ficha")
 async def crear_ficha(
     imagen_fondo: UploadFile = File(...),
-    imagen_personaje: UploadFile = File(...),
+    imagen_personaje: UploadFile = File(None),  # OPCIONAL - ya no se usa
     texto_cuento: str = Form(...),
     titulo: str = Form(default=""),
     header_height: int = Form(default=1150),
@@ -1126,10 +1126,12 @@ async def crear_ficha(
         if fondo_img.mode != 'RGB':
             fondo_img = fondo_img.convert('RGB')
 
-        # YA NO PROCESAMOS PERSONAJE SEPARADO - La imagen viene completa desde n8n
-        # personaje_bytes = await imagen_personaje.read()
-        # personaje_img = Image.open(io.BytesIO(personaje_bytes))
-        # personaje_img = remover_fondo_blanco(personaje_img)
+        # PERSONAJE OPCIONAL - Solo procesar si se envía (para compatibilidad)
+        personaje_img = None
+        if imagen_personaje is not None:
+            personaje_bytes = await imagen_personaje.read()
+            personaje_img = Image.open(io.BytesIO(personaje_bytes))
+            personaje_img = remover_fondo_blanco(personaje_img)
 
         # ============ ELEGIR TIPO DE COMPOSICIÓN ============
         a4_width = 2480
@@ -1303,8 +1305,26 @@ async def crear_ficha(
             # 🎨 ESTILO HEADER+TEXTO ORIGINAL (por defecto)
             logger.info(f"🎨 Creando estilo HEADER+TEXTO original")
 
-            # Combinar fondo + personaje con efectos épicos
-            header_img = combinar_fondo_personaje(fondo_img, personaje_img, header_height, numero_pagina, total_paginas)
+            # Si hay personaje, combinar fondo + personaje, si no, solo fondo
+            if personaje_img is not None:
+                header_img = combinar_fondo_personaje(fondo_img, personaje_img, header_height, numero_pagina, total_paginas)
+            else:
+                # Solo fondo para el header (sin personaje)
+                target_aspect = 2480 / header_height
+                image_aspect = fondo_img.width / fondo_img.height
+
+                if image_aspect < target_aspect:
+                    new_width = 2480
+                    new_height = int(2480 / image_aspect)
+                    header_img_resized = fondo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    top_crop = max(0, (new_height - header_height) // 2)
+                    header_img = header_img_resized.crop((0, top_crop, new_width, top_crop + header_height))
+                else:
+                    new_height = header_height
+                    new_width = int(header_height * image_aspect)
+                    header_img_resized = fondo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    left_crop = max(0, (new_width - 2480) // 2)
+                    header_img = header_img_resized.crop((left_crop, 0, left_crop + 2480, new_height))
 
             margin_left = 160
             margin_right = 160
