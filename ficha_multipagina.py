@@ -1139,7 +1139,7 @@ async def crear_ficha(
 
         if tipo_composicion == "fondo_completo":
             # 🎬 ESTILO FONDO COMPLETO - Página completa épica
-            logger.info(f"🎬 Creando estilo FONDO COMPLETO épico")
+            logger.info(f"🎬 MODO FONDO_COMPLETO - Página {numero_pagina} (es_primera: {es_primera_pagina})")
 
             # Crear fondo completo SIN PERSONAJE - La imagen ya viene integrada desde n8n
             canvas = crear_fondo_solo_imagen(fondo_img, a4_width, a4_height)
@@ -1162,16 +1162,19 @@ async def crear_ficha(
                     font_bold = ImageFont.load_default()
                     font_titulo = ImageFont.load_default()
 
-            # TÍTULO con sombra blanca épica (solo primera página)
+            # TÍTULO con sombra blanca épica (solo primera página) - PERO NO AFECTA POSICIÓN DEL TEXTO
             if es_primera_pagina and titulo:
+                logger.info(f"🏷️ Agregando título en página 1: '{titulo[:30]}...'")
                 titulo_capitalizado = to_title_case(titulo)
                 bbox_title = draw.textbbox((0, 0), titulo_capitalizado, font=font_titulo)
                 title_width = bbox_title[2] - bbox_title[0]
 
                 title_x = (a4_width - title_width) // 2
-                title_y = 150  # Arriba de la página
+                title_y = 150  # Arriba de la página - NO AFECTA la burbuja de texto
 
                 draw_texto_con_sombra_blanca(draw, title_x, title_y, titulo_capitalizado, font_titulo, '#FFD700')
+            else:
+                logger.info(f"🚫 NO hay título para página {numero_pagina}")
 
             # TEXTO manuscrito con interlineado cómodo para niños
             line_spacing = 95  # INTERLINEADO GRANDE para ocupar toda la burbuja (era 75)
@@ -1307,7 +1310,7 @@ async def crear_ficha(
 
         else:
             # 🎨 ESTILO HEADER+TEXTO ORIGINAL (por defecto)
-            logger.info(f"🎨 Creando estilo HEADER+TEXTO original")
+            logger.info(f"🎨 MODO HEADER+TEXTO - Página {numero_pagina} (es_primera: {es_primera_pagina})")
 
             # Si hay personaje, combinar fondo + personaje, si no, solo fondo
             if personaje_img is not None:
