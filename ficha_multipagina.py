@@ -1109,17 +1109,17 @@ async def crear_ficha(
             canvas = crear_fondo_completo_epico(fondo_img, personaje_img, a4_width, a4_height, numero_pagina)
             draw = ImageDraw.Draw(canvas)
 
-            # Cargar fuentes MANUSCRITAS más pequeñas para más texto
+            # Cargar fuentes MÁS GRANDES para mejor legibilidad infantil
             try:
-                # Intentar fuentes manuscritas/cursivas primero
-                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 55)  # Era 85 → Ahora 55 (más pequeña)
-                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 55)
-                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)  # Era 160 → Ahora 120
+                # Fuentes más grandes para niños
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 68)  # Era 55 → Ahora 68 (más grande)
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 68)
+                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
             except:
                 try:
-                    # Intentar fuentes serif/manuscritas como fallback
-                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 55)  # Serif para estilo manuscrito
-                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 55)
+                    # Intentar fuentes serif/manuscritas como fallback - MÁS GRANDES
+                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 68)  # Serif más grande
+                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 68)
                     font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
                 except:
                     font_normal = ImageFont.load_default()
@@ -1137,8 +1137,8 @@ async def crear_ficha(
 
                 draw_texto_con_sombra_blanca(draw, title_x, title_y, titulo_capitalizado, font_titulo, '#FFD700')
 
-            # TEXTO manuscrito con sombra blanca - DOBLE CAPACIDAD
-            line_spacing = 55  # Era 75 → Ahora 55 (más compacto para más líneas)
+            # TEXTO manuscrito con interlineado cómodo para niños
+            line_spacing = 75  # Aumentado para mejor legibilidad infantil (era 55)
 
             # NUEVO: Ancho de texto ajustado a la burbuja armónica (80% de hoja)
             margin_horizontal = a4_width * 0.1  # 10% margen cada lado
@@ -1193,7 +1193,8 @@ async def crear_ficha(
             # Procesar todo el texto y dividirlo en líneas
             paragrafos = texto_cuento.strip().split('\n\n')
             todas_las_lineas = []
-            max_lines = int((texto_y_end - texto_y_start) / line_spacing)
+            # Calcular líneas disponibles con nuevo interlineado
+            max_lines = int((texto_y_end - texto_y_start) / line_spacing) + 1  # +1 para aprovechar mejor el espacio
 
             for parrafo in paragrafos:
                 if len(todas_las_lineas) >= max_lines:
