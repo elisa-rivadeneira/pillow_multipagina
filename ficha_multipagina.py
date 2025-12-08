@@ -1101,25 +1101,54 @@ async def crear_ficha(
 
                 draw_texto_con_sombra_blanca(draw, title_x, title_y, titulo_capitalizado, font_titulo, '#FFD700')
 
-            # TEXTO con sombra blanca - buscar mejor zona libre
+            # TEXTO con sombra blanca - EVITAR SOLAPAMIENTO CON PERSONAJE
             line_spacing = 75
             margin_left = 150
             margin_right = 150
             max_width_texto = a4_width - margin_left - margin_right
 
-            # Detectar zona más libre para el texto
-            zonas_texto = [
-                {'y_start': 400, 'y_end': 1200, 'nombre': 'superior'},      # Zona superior
-                {'y_start': 1200, 'y_end': 2200, 'nombre': 'media'},        # Zona media
-                {'y_start': 2200, 'y_end': 3200, 'nombre': 'inferior'}      # Zona inferior
+            # ============ DETECTAR POSICIÓN DEL PERSONAJE ============
+            # Obtener info de dónde está el personaje según página
+            personaje_positions = [
+                'derecha_dramatico',    # Página 1: Personaje derecha-abajo
+                'izquierda_accion',     # Página 2: Personaje izquierda-abajo
+                'centro_exploracion',   # Página 3: Personaje centro-abajo
+                'derecha_tension',      # Página 4: Personaje derecha-centro
+                'centro_triunfo'        # Página 5: Personaje centro-centro
             ]
 
-            # Usar zona media como default (generalmente más libre)
-            zona_elegida = zonas_texto[1]
-            texto_y_start = zona_elegida['y_start'] + 100
-            texto_y_end = zona_elegida['y_end'] - 100
+            position_type = personaje_positions[(numero_pagina - 1) % len(personaje_positions)]
 
-            logger.info(f"📝 Zona de texto: {zona_elegida['nombre']} ({texto_y_start}-{texto_y_end})")
+            # ============ SELECCIONAR ZONA LIBRE SEGÚN PERSONAJE ============
+            if position_type == 'derecha_dramatico':
+                # Personaje derecha-abajo → Texto en zona superior-izquierda
+                zona_texto = {'x_start': 150, 'x_end': 1500, 'y_start': 400, 'y_end': 1400, 'nombre': 'superior-izq'}
+
+            elif position_type == 'izquierda_accion':
+                # Personaje izquierda-abajo → Texto en zona superior-derecha
+                zona_texto = {'x_start': 1000, 'x_end': 2300, 'y_start': 400, 'y_end': 1400, 'nombre': 'superior-der'}
+
+            elif position_type == 'centro_exploracion':
+                # Personaje centro-abajo → Texto en zona superior-centro
+                zona_texto = {'x_start': 300, 'x_end': 2100, 'y_start': 300, 'y_end': 1000, 'nombre': 'superior-centro'}
+
+            elif position_type == 'derecha_tension':
+                # Personaje derecha-centro → Texto en zona izquierda completa
+                zona_texto = {'x_start': 150, 'x_end': 1200, 'y_start': 800, 'y_end': 2500, 'nombre': 'izquierda-completa'}
+
+            else:  # centro_triunfo
+                # Personaje centro-centro → Texto en esquinas disponibles
+                zona_texto = {'x_start': 150, 'x_end': 2300, 'y_start': 2400, 'y_end': 3300, 'nombre': 'inferior-completo'}
+
+            # Configurar área de texto
+            texto_x_start = zona_texto['x_start']
+            texto_x_end = zona_texto['x_end']
+            texto_y_start = zona_texto['y_start']
+            texto_y_end = zona_texto['y_end']
+            max_width_texto = texto_x_end - texto_x_start - 100  # Margen para sombras
+
+            logger.info(f"📝 Zona de texto: {zona_texto['nombre']} | Personaje: {position_type}")
+            logger.info(f"📐 Área texto: X({texto_x_start}-{texto_x_end}) Y({texto_y_start}-{texto_y_end})")
 
             # Dividir texto en párrafos y procesar línea por línea
             paragrafos = texto_cuento.strip().split('\n\n')
@@ -1149,7 +1178,7 @@ async def crear_ficha(
                         # Dibujar línea actual
                         if linea_actual and current_y <= texto_y_end:
                             linea_text = ' '.join(linea_actual)
-                            draw_texto_con_sombra_blanca(draw, margin_left, current_y, linea_text, font_normal)
+                            draw_texto_con_sombra_blanca(draw, texto_x_start, current_y, linea_text, font_normal)
                             current_y += line_spacing
                             lines_used += 1
 
@@ -1159,7 +1188,7 @@ async def crear_ficha(
                 # Dibujar línea final del párrafo
                 if linea_actual and current_y <= texto_y_end and lines_used < max_lines:
                     linea_text = ' '.join(linea_actual)
-                    draw_texto_con_sombra_blanca(draw, margin_left, current_y, linea_text, font_normal)
+                    draw_texto_con_sombra_blanca(draw, texto_x_start, current_y, linea_text, font_normal)
                     current_y += line_spacing
                     lines_used += 1
 
