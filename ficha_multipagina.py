@@ -555,38 +555,74 @@ def crear_fondo_completo_epico(fondo_img: Image.Image, personaje_img: Image.Imag
     return resultado.convert('RGB')
 
 def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='black', max_width=None):
-    """📝 Dibuja texto con SOMBRA BLANCA EXTENSA para máxima legibilidad sobre fondos complejos."""
+    """📝 Dibuja texto con SOMBRA DIFUMINADA tipo NUBE para máxima legibilidad."""
+    from PIL import ImageFilter
 
-    # ============ SOMBRA BLANCA SÚPER EXTENSA ============
-    # Crear múltiples capas de sombra blanca con diferentes intensidades
-    sombra_layers = [
-        # Capa 1: Sombra más lejana (más sutil)
-        {'offsets': [(-8, -8), (-8, 0), (-8, 8), (0, -8), (0, 8), (8, -8), (8, 0), (8, 8)], 'color': 'rgba(255,255,255,180)'},
-        # Capa 2: Sombra media
-        {'offsets': [(-6, -6), (-6, 0), (-6, 6), (0, -6), (0, 6), (6, -6), (6, 0), (6, 6)], 'color': 'rgba(255,255,255,200)'},
-        # Capa 3: Sombra cercana (más intensa)
-        {'offsets': [(-4, -4), (-4, 0), (-4, 4), (0, -4), (0, 4), (4, -4), (4, 0), (4, 4)], 'color': 'white'},
-        # Capa 4: Sombra muy cercana (máxima intensidad)
-        {'offsets': [(-2, -2), (-2, 0), (-2, 2), (0, -2), (0, 2), (2, -2), (2, 0), (2, 2)], 'color': 'white'},
-        # Capa 5: Sombra inmediata
-        {'offsets': [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)], 'color': 'white'}
-    ]
+    # Calcular tamaño del texto para crear canvas temporal
+    try:
+        bbox = draw.textbbox((0, 0), texto, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+    except:
+        text_width = len(texto) * 20
+        text_height = 50
 
-    # Dibujar todas las capas de sombra
-    for layer in sombra_layers:
-        for offset_x, offset_y in layer['offsets']:
-            draw.text((x + offset_x, y + offset_y), texto, font=font, fill=layer['color'])
+    # Crear canvas temporal más grande para el blur
+    blur_margin = 30
+    temp_width = text_width + (blur_margin * 2)
+    temp_height = text_height + (blur_margin * 2)
+
+    # Crear imagen temporal para la sombra
+    sombra_img = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
+    sombra_draw = ImageDraw.Draw(sombra_img)
+
+    # ============ CREAR MÚLTIPLES CAPAS DE SOMBRA DIFUMINADA ============
+
+    # Capa 1: Sombra base muy difuminada (más extensa)
+    sombra_draw.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
+    sombra_blur1 = sombra_img.filter(ImageFilter.GaussianBlur(radius=12))  # Blur grande
+
+    # Capa 2: Sombra media
+    sombra_img2 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
+    sombra_draw2 = ImageDraw.Draw(sombra_img2)
+    sombra_draw2.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
+    sombra_blur2 = sombra_img2.filter(ImageFilter.GaussianBlur(radius=8))  # Blur medio
+
+    # Capa 3: Sombra cercana
+    sombra_img3 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
+    sombra_draw3 = ImageDraw.Draw(sombra_img3)
+    sombra_draw3.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
+    sombra_blur3 = sombra_img3.filter(ImageFilter.GaussianBlur(radius=4))  # Blur pequeño
+
+    # ============ COMBINAR CAPAS DE SOMBRA ============
+    # Crear canvas final para pegar las sombras
+    canvas_img = draw._image if hasattr(draw, '_image') else Image.new('RGBA', (draw.im.size), (0, 0, 0, 0))
+
+    # Calcular posición para pegar las sombras
+    paste_x = max(0, x - blur_margin)
+    paste_y = max(0, y - blur_margin)
+
+    # Pegar las capas de sombra (de más difusa a menos difusa)
+    try:
+        canvas_img.paste(sombra_blur1, (paste_x, paste_y), sombra_blur1)
+        canvas_img.paste(sombra_blur2, (paste_x, paste_y), sombra_blur2)
+        canvas_img.paste(sombra_blur3, (paste_x, paste_y), sombra_blur3)
+    except:
+        # Fallback: usar el método anterior si hay problemas
+        offsets = [(-6, -6), (-6, 0), (-6, 6), (0, -6), (0, 6), (6, -6), (6, 0), (6, 6),
+                  (-4, -4), (-4, 0), (-4, 4), (0, -4), (0, 4), (4, -4), (4, 0), (4, 4),
+                  (-2, -2), (-2, 0), (-2, 2), (0, -2), (0, 2), (2, -2), (2, 0), (2, 2)]
+        for offset_x, offset_y in offsets:
+            draw.text((x + offset_x, y + offset_y), texto, font=font, fill='white')
 
     # ============ TEXTO PRINCIPAL NEGRO ============
-    if max_width:
-        return draw_formatted_line(draw, x, y, texto, {'normal': font}, color_texto, max_width)
-    else:
-        draw.text((x, y), texto, font=font, fill=color_texto)
-        try:
-            return draw.textlength(texto, font=font)
-        except AttributeError:
-            bbox = draw.textbbox((0, 0), texto, font=font)
-            return bbox[2] - bbox[0]
+    draw.text((x, y), texto, font=font, fill=color_texto)
+
+    try:
+        return draw.textlength(texto, font=font)
+    except AttributeError:
+        bbox = draw.textbbox((0, 0), texto, font=font)
+        return bbox[2] - bbox[0]
 
 # ============================================================================
 # FUNCIONES PARA MULTIPÁGINA
