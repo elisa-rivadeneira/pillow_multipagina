@@ -1139,9 +1139,11 @@ async def crear_ficha(
 
             # TEXTO manuscrito con sombra blanca - DOBLE CAPACIDAD
             line_spacing = 55  # Era 75 → Ahora 55 (más compacto para más líneas)
-            margin_left = 100  # Era 150 → Ahora 100 (aprovecha más espacio)
-            margin_right = 100
-            max_width_texto = a4_width - margin_left - margin_right
+
+            # NUEVO: Ancho de texto ajustado a la burbuja armónica (80% de hoja)
+            margin_horizontal = a4_width * 0.1  # 10% margen cada lado
+            bubble_padding_text = 40  # Mismo padding que la burbuja
+            max_width_texto = (a4_width * 0.8) - (bubble_padding_text * 2)  # Ancho dentro de la burbuja
 
             # ============ DETECTAR POSICIÓN DEL PERSONAJE ============
             # Obtener info de dónde está el personaje según página
@@ -1186,19 +1188,17 @@ async def crear_ficha(
             logger.info(f"📝 Zona de texto: {zona_texto['nombre']} | Personaje: {position_type}")
             logger.info(f"📐 Área texto: X({texto_x_start}-{texto_x_end}) Y({texto_y_start}-{texto_y_end})")
 
-            # Dividir texto en párrafos y procesar MUCHO MÁS texto
+            # ============ CREAR UNA BURBUJA GRANDE PARA TODO EL TEXTO ============
+
+            # Procesar todo el texto y dividirlo en líneas
             paragrafos = texto_cuento.strip().split('\n\n')
-            current_y = texto_y_start
-            max_lines = int((texto_y_end - texto_y_start) / line_spacing) + 3  # +3 líneas extra aprovechando espacio
+            todas_las_lineas = []
+            max_lines = int((texto_y_end - texto_y_start) / line_spacing)
 
-            logger.info(f"📝 Capacidad texto manuscrito: {max_lines} líneas (doble capacidad)")
-
-            lines_used = 0
-            for i, parrafo in enumerate(paragrafos):
-                if lines_used >= max_lines - 1:
+            for parrafo in paragrafos:
+                if len(todas_las_lineas) >= max_lines:
                     break
 
-                # Dividir párrafo en líneas que quepan en el ancho
                 palabras = parrafo.split()
                 linea_actual = []
 
@@ -1210,32 +1210,74 @@ async def crear_ficha(
                         bbox = draw.textbbox((0, 0), test_line, font=font_normal)
                         test_width = bbox[2] - bbox[0]
 
-                    if test_width <= max_width_texto - 100:  # Margen extra para sombras
+                    if test_width <= max_width_texto:  # Ya no necesita margen extra
                         linea_actual.append(palabra)
                     else:
-                        # Dibujar línea actual
-                        if linea_actual and current_y <= texto_y_end:
-                            linea_text = ' '.join(linea_actual)
-                            draw_texto_con_sombra_blanca(draw, texto_x_start, current_y, linea_text, font_normal)
-                            current_y += line_spacing
-                            lines_used += 1
-
-                        # Empezar nueva línea
+                        if linea_actual:
+                            todas_las_lineas.append(' '.join(linea_actual))
                         linea_actual = [palabra]
 
-                # Dibujar línea final del párrafo
-                if linea_actual and current_y <= texto_y_end and lines_used < max_lines:
-                    linea_text = ' '.join(linea_actual)
-                    draw_texto_con_sombra_blanca(draw, texto_x_start, current_y, linea_text, font_normal)
-                    current_y += line_spacing
-                    lines_used += 1
+                # Añadir línea final del párrafo
+                if linea_actual:
+                    todas_las_lineas.append(' '.join(linea_actual))
 
-                # Espacio entre párrafos
-                if i < len(paragrafos) - 1 and lines_used < max_lines - 1:
-                    current_y += line_spacing * 0.5
-                    lines_used += 0.5
+            # Limitar líneas si es necesario
+            todas_las_lineas = todas_las_lineas[:max_lines]
 
-            logger.info(f"📝 Texto renderizado: {lines_used:.1f}/{max_lines} líneas")
+            # ============ CREAR BURBUJA GRANDE ARMONIOSAMENTE ANCHA ============
+            if todas_las_lineas:
+                # Calcular dimensiones de la burbuja - ANCHO ARMÓNICO 80% DE LA HOJA
+                bubble_padding = 40  # Padding más generoso estilo Disney/Pixar
+                bubble_radius = 35   # Esquinas más redondeadas estilo burbuja de diálogo
+
+                # ANCHO FIJO: 80% del ancho de la página (20% márgenes total = 10% cada lado)
+                margin_horizontal = a4_width * 0.1  # 10% margen cada lado
+                bubble_width_total = a4_width * 0.8  # 80% de ancho de hoja
+
+                # Altura basada en líneas de texto
+                bubble_height = (len(todas_las_lineas) * line_spacing) + (bubble_padding * 2)
+
+                # Posición de la burbuja - CENTRADA HORIZONTALMENTE
+                bubble_x = margin_horizontal
+                bubble_y = texto_y_start - bubble_padding
+
+                # Crear burbuja semitransparente con ancho armónico
+                bubble_img = Image.new('RGBA', (int(bubble_width_total), int(bubble_height)), (0, 0, 0, 0))
+                bubble_draw = ImageDraw.Draw(bubble_img)
+
+                # Fondo blanco semitransparente elegante - MÁS SUAVE como storybooks reales
+                bubble_draw.rounded_rectangle(
+                    [0, 0, bubble_width_total, bubble_height],
+                    radius=bubble_radius,
+                    fill=(255, 255, 255, 180),  # Blanco con 70% opacidad (más suave)
+                    outline=(100, 100, 100, 255),  # Borde gris SÓLIDO sin transparencia
+                    width=3  # Borde más visible
+                )
+
+                # Pegar burbuja al canvas principal
+                try:
+                    canvas.paste(bubble_img, (int(bubble_x), int(bubble_y)), bubble_img)
+                except:
+                    # Fallback simple
+                    draw.rounded_rectangle(
+                        [bubble_x, bubble_y, bubble_x + bubble_width_total, bubble_y + bubble_height],
+                        radius=bubble_radius,
+                        fill=(255, 255, 255, 180),
+                        outline=(100, 100, 100, 255),
+                        width=3
+                    )
+
+                # ============ DIBUJAR TEXTO NEGRO ELEGANTE CENTRADO ============
+                # Centrar texto dentro de la burbuja armónica
+                texto_x_centrado = margin_horizontal + bubble_padding
+                current_y = texto_y_start
+
+                for linea in todas_las_lineas:
+                    if linea.strip():
+                        draw.text((texto_x_centrado, current_y), linea, font=font_normal, fill='#2c2c2c')
+                        current_y += line_spacing
+
+                logger.info(f"💬 Burbuja creada: {len(todas_las_lineas)} líneas en una sola burbuja")
 
             # Número de página
             if total_paginas > 1:
