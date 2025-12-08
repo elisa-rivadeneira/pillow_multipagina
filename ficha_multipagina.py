@@ -1183,7 +1183,7 @@ async def crear_ficha(
             texto_x_end = zona_texto['x_end']
             texto_y_start = zona_texto['y_start']
             texto_y_end = zona_texto['y_end']
-            max_width_texto = texto_x_end - texto_x_start - 100  # Margen para sombras
+            # max_width_texto ya está calculado arriba correctamente para la burbuja del 80%
 
             logger.info(f"📝 Zona de texto: {zona_texto['nombre']} | Personaje: {position_type}")
             logger.info(f"📐 Área texto: X({texto_x_start}-{texto_x_end}) Y({texto_y_start}-{texto_y_end})")
