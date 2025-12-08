@@ -1112,14 +1112,14 @@ async def crear_ficha(
             # Cargar fuentes MÁS GRANDES para mejor legibilidad infantil
             try:
                 # Fuentes más grandes para niños
-                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 68)  # Era 55 → Ahora 68 (más grande)
-                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 68)
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 90)  # MUCHO MÁS GRANDE para ocupar burbuja
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 90)
                 font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
             except:
                 try:
                     # Intentar fuentes serif/manuscritas como fallback - MÁS GRANDES
-                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 68)  # Serif más grande
-                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 68)
+                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 90)  # Serif MUCHO más grande
+                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 90)
                     font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
                 except:
                     font_normal = ImageFont.load_default()
@@ -1138,7 +1138,7 @@ async def crear_ficha(
                 draw_texto_con_sombra_blanca(draw, title_x, title_y, titulo_capitalizado, font_titulo, '#FFD700')
 
             # TEXTO manuscrito con interlineado cómodo para niños
-            line_spacing = 75  # Aumentado para mejor legibilidad infantil (era 55)
+            line_spacing = 95  # INTERLINEADO GRANDE para ocupar toda la burbuja (era 75)
 
             # NUEVO: Ancho de texto ajustado a la burbuja armónica (80% de hoja)
             margin_horizontal = a4_width * 0.1  # 10% margen cada lado
