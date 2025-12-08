@@ -1159,16 +1159,16 @@ async def crear_ficha(
 
             # ============ ZONAS EXPANDIDAS PARA DOBLE TEXTO ============
             if position_type == 'derecha_dramatico':
-                # Personaje derecha-abajo → Texto en zona superior-izquierda EXPANDIDA
-                zona_texto = {'x_start': 100, 'x_end': 1600, 'y_start': 300, 'y_end': 1600, 'nombre': 'superior-izq-expandida'}
+                # Personaje derecha-abajo → Texto en zona superior-izquierda EXPANDIDA (MÁS ABAJO)
+                zona_texto = {'x_start': 100, 'x_end': 1600, 'y_start': 450, 'y_end': 1600, 'nombre': 'superior-izq-expandida'}
 
             elif position_type == 'izquierda_accion':
-                # Personaje izquierda-abajo → Texto en zona superior-derecha EXPANDIDA
-                zona_texto = {'x_start': 900, 'x_end': 2380, 'y_start': 300, 'y_end': 1600, 'nombre': 'superior-der-expandida'}
+                # Personaje izquierda-abajo → Texto en zona superior-derecha EXPANDIDA (MÁS ABAJO)
+                zona_texto = {'x_start': 900, 'x_end': 2380, 'y_start': 450, 'y_end': 1600, 'nombre': 'superior-der-expandida'}
 
             elif position_type == 'centro_exploracion':
-                # Personaje centro-abajo → Texto en zona superior MUY AMPLIA
-                zona_texto = {'x_start': 100, 'x_end': 2380, 'y_start': 250, 'y_end': 1200, 'nombre': 'superior-completo'}
+                # Personaje centro-abajo → Texto en zona superior MUY AMPLIA (MÁS ABAJO)
+                zona_texto = {'x_start': 100, 'x_end': 2380, 'y_start': 400, 'y_end': 1200, 'nombre': 'superior-completo'}
 
             elif position_type == 'derecha_tension':
                 # Personaje derecha-centro → Texto en zona izquierda MUY EXPANDIDA
@@ -1245,11 +1245,11 @@ async def crear_ficha(
                 bubble_img = Image.new('RGBA', (int(bubble_width_total), int(bubble_height)), (0, 0, 0, 0))
                 bubble_draw = ImageDraw.Draw(bubble_img)
 
-                # Fondo blanco semitransparente elegante - MÁS SUAVE como storybooks reales
+                # Fondo blanco MÁS TRANSPARENTE - Como en imagen de referencia
                 bubble_draw.rounded_rectangle(
                     [0, 0, bubble_width_total, bubble_height],
                     radius=bubble_radius,
-                    fill=(255, 255, 255, 180),  # Blanco con 70% opacidad (más suave)
+                    fill=(255, 255, 255, 120),  # Blanco con MAYOR transparencia (47% opacidad)
                     outline=(100, 100, 100, 255),  # Borde gris SÓLIDO sin transparencia
                     width=3  # Borde más visible
                 )
@@ -1258,11 +1258,11 @@ async def crear_ficha(
                 try:
                     canvas.paste(bubble_img, (int(bubble_x), int(bubble_y)), bubble_img)
                 except:
-                    # Fallback simple
+                    # Fallback simple con mayor transparencia
                     draw.rounded_rectangle(
                         [bubble_x, bubble_y, bubble_x + bubble_width_total, bubble_y + bubble_height],
                         radius=bubble_radius,
-                        fill=(255, 255, 255, 180),
+                        fill=(255, 255, 255, 120),
                         outline=(100, 100, 100, 255),
                         width=3
                     )
