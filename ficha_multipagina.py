@@ -1179,23 +1179,23 @@ async def crear_ficha(
             # TEXTO manuscrito con interlineado cómodo para niños
             line_spacing = 95  # INTERLINEADO GRANDE para ocupar toda la burbuja (era 75)
 
-            # NUEVO: Ancho de texto ajustado a la burbuja armónica (80% de hoja)
-            margin_horizontal = a4_width * 0.1  # 10% margen cada lado
-            bubble_padding_text = 45  # PADDING MAYOR igual al de la burbuja
-            max_width_texto = (a4_width * 0.8) - (bubble_padding_text * 2)  # Ancho dentro de la burbuja
+            # NUEVO: Ancho de texto OPTIMIZADO para más palabras
+            margin_horizontal = a4_width * 0.05  # 5% margen cada lado (era 10%)
+            bubble_padding_text = 35  # PADDING REDUCIDO para más espacio de texto
+            max_width_texto = (a4_width * 0.9) - (bubble_padding_text * 2)  # 90% ancho total
 
-            # ============ POSICIONAMIENTO ABSOLUTAMENTE FIJO: SIEMPRE ABAJO ============
-            # Texto SIEMPRE en la MISMA posición para TODAS las páginas
+            # ============ POSICIONAMIENTO OPTIMIZADO PARA 7 LÍNEAS ============
+            # Texto BAJADO para dar máximo protagonismo a la imagen del cuento
             margen_inferior_fijo = 8  # MARGEN FIJO para todas las páginas
-            y_start_fijo = 2200  # Y FIJA para todas las páginas
+            y_start_fijo = 2700  # Y MÁS BAJA para 7 líneas (era 2200)
             y_end_fijo = 3508 - margen_inferior_fijo  # 3500px FIJO para todas
 
             zona_texto = {
-                'x_start': a4_width * 0.1,  # FIJO: 248px
-                'x_end': a4_width * 0.9,    # FIJO: 2232px
+                'x_start': a4_width * 0.05, # FIJO: 124px (menos margen)
+                'x_end': a4_width * 0.95,   # FIJO: 2356px (menos margen)
                 'y_start': y_start_fijo,    # FIJO: 2200px
                 'y_end': y_end_fijo,        # FIJO: 3500px
-                'nombre': 'inferior-absolutamente-fijo'
+                'nombre': 'inferior-optimizado'
             }
 
             # Configurar área de texto
@@ -1244,23 +1244,30 @@ async def crear_ficha(
                     todas_las_lineas.append(' '.join(linea_actual))
 
             # Limitar líneas si es necesario
+            lineas_antes = len(todas_las_lineas)
             todas_las_lineas = todas_las_lineas[:max_lines]
+            lineas_despues = len(todas_las_lineas)
+
+            palabras_totales = len(' '.join(todas_las_lineas).split())
+            logger.info(f"📝 TEXTO: {palabras_totales} palabras → {lineas_despues} líneas (max: {max_lines})")
+            if lineas_antes > max_lines:
+                logger.warning(f"⚠️ TEXTO RECORTADO: {lineas_antes} líneas → {lineas_despues} líneas")
 
             # ============ CREAR BURBUJA GRANDE ARMONIOSAMENTE ANCHA ============
             if todas_las_lineas:
-                # Calcular dimensiones de la burbuja - ANCHO ARMÓNICO 80% DE LA HOJA
-                bubble_padding = 45  # PADDING MAYOR para letra más pequeña
+                # Calcular dimensiones de la burbuja - ANCHO OPTIMIZADO 90% DE LA HOJA
+                bubble_padding = 35  # PADDING OPTIMIZADO para más espacio de texto
                 bubble_radius = 35   # Esquinas más redondeadas estilo burbuja de diálogo
 
-                # ANCHO FIJO: 80% del ancho de la página (20% márgenes total = 10% cada lado)
-                margin_horizontal = a4_width * 0.1  # 10% margen cada lado
-                bubble_width_total = a4_width * 0.8  # 80% de ancho de hoja
+                # ANCHO OPTIMIZADO: 90% del ancho de la página (10% márgenes total = 5% cada lado)
+                margin_horizontal_burbuja = a4_width * 0.05  # 5% margen cada lado
+                bubble_width_total = a4_width * 0.9  # 90% de ancho de hoja
 
                 # Altura basada en líneas de texto
                 bubble_height = (len(todas_las_lineas) * line_spacing) + (bubble_padding * 2)
 
-                # Posición de la burbuja - CENTRADA HORIZONTALMENTE
-                bubble_x = margin_horizontal
+                # Posición de la burbuja - CENTRADA HORIZONTALMENTE CON MÁRGENES REDUCIDOS
+                bubble_x = margin_horizontal_burbuja
                 bubble_y = texto_y_start - bubble_padding
 
                 # Crear burbuja semitransparente con ancho armónico
@@ -1290,8 +1297,8 @@ async def crear_ficha(
                     )
 
                 # ============ DIBUJAR TEXTO NEGRO ELEGANTE CENTRADO ============
-                # Centrar texto dentro de la burbuja armónica con padding reducido
-                texto_x_centrado = margin_horizontal + bubble_padding
+                # Centrar texto dentro de la burbuja optimizada con padding reducido
+                texto_x_centrado = margin_horizontal_burbuja + bubble_padding
                 current_y = texto_y_start
 
                 for linea in todas_las_lineas:
