@@ -1181,15 +1181,18 @@ async def crear_ficha(
             bubble_padding_text = 45  # PADDING MAYOR igual al de la burbuja
             max_width_texto = (a4_width * 0.8) - (bubble_padding_text * 2)  # Ancho dentro de la burbuja
 
-            # ============ POSICIONAMIENTO FIJO: SIEMPRE ABAJO ============
-            # Texto SIEMPRE en la parte inferior para que la imagen principal esté arriba
-            margen_inferior = 20  # MARGEN MÍNIMO para aprovechar mejor el fondo
+            # ============ POSICIONAMIENTO ABSOLUTAMENTE FIJO: SIEMPRE ABAJO ============
+            # Texto SIEMPRE en la MISMA posición para TODAS las páginas
+            margen_inferior_fijo = 8  # MARGEN FIJO para todas las páginas
+            y_start_fijo = 2200  # Y FIJA para todas las páginas
+            y_end_fijo = 3508 - margen_inferior_fijo  # 3500px FIJO para todas
+
             zona_texto = {
-                'x_start': margin_horizontal,  # Alineado con la burbuja del 80%
-                'x_end': margin_horizontal + (a4_width * 0.8),  # 80% del ancho
-                'y_start': 2000,  # Zona inferior más baja para apreciar mejor fondo
-                'y_end': a4_height - margen_inferior,  # Hasta el final menos margen
-                'nombre': 'inferior-fijo'
+                'x_start': a4_width * 0.1,  # FIJO: 248px
+                'x_end': a4_width * 0.9,    # FIJO: 2232px
+                'y_start': y_start_fijo,    # FIJO: 2200px
+                'y_end': y_end_fijo,        # FIJO: 3500px
+                'nombre': 'inferior-absolutamente-fijo'
             }
 
             # Configurar área de texto
@@ -1199,8 +1202,9 @@ async def crear_ficha(
             texto_y_end = zona_texto['y_end']
             # max_width_texto ya está calculado arriba correctamente para la burbuja del 80%
 
-            logger.info(f"📝 Zona de texto: {zona_texto['nombre']} - SIEMPRE ABAJO")
-            logger.info(f"📐 Área texto: X({texto_x_start}-{texto_x_end}) Y({texto_y_start}-{texto_y_end}) | Margen inferior: {margen_inferior}px")
+            logger.info(f"📝 PÁGINA {numero_pagina}: Zona {zona_texto['nombre']}")
+            logger.info(f"📐 FIJO: X({texto_x_start:.0f}-{texto_x_end:.0f}) Y({texto_y_start:.0f}-{texto_y_end:.0f}) | Margen: {margen_inferior_fijo}px")
+            logger.info(f"🎯 VALORES ABSOLUTOS: y_start={y_start_fijo}, y_end={y_end_fijo}, altura_disponible={y_end_fijo-y_start_fijo}px")
 
             # ============ CREAR UNA BURBUJA GRANDE PARA TODO EL TEXTO ============
 
