@@ -1258,11 +1258,11 @@ async def crear_ficha(
                 bubble_img = Image.new('RGBA', (int(bubble_width_total), int(bubble_height)), (0, 0, 0, 0))
                 bubble_draw = ImageDraw.Draw(bubble_img)
 
-                # Fondo blanco MÁS TRANSPARENTE - Como en imagen de referencia
+                # Fondo blanco CON MÁS OPACIDAD para lectura en fondos claros
                 bubble_draw.rounded_rectangle(
                     [0, 0, bubble_width_total, bubble_height],
                     radius=bubble_radius,
-                    fill=(255, 255, 255, 120),  # Blanco con MAYOR transparencia (47% opacidad)
+                    fill=(255, 255, 255, 200),  # Blanco con MÁS OPACIDAD (78% para lectura clara)
                     outline=(100, 100, 100, 255),  # Borde gris SÓLIDO sin transparencia
                     width=3  # Borde más visible
                 )
@@ -1271,11 +1271,11 @@ async def crear_ficha(
                 try:
                     canvas.paste(bubble_img, (int(bubble_x), int(bubble_y)), bubble_img)
                 except:
-                    # Fallback simple con mayor transparencia
+                    # Fallback simple con más opacidad para legibilidad
                     draw.rounded_rectangle(
                         [bubble_x, bubble_y, bubble_x + bubble_width_total, bubble_y + bubble_height],
                         radius=bubble_radius,
-                        fill=(255, 255, 255, 120),
+                        fill=(255, 255, 255, 200),
                         outline=(100, 100, 100, 255),
                         width=3
                     )
