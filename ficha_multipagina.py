@@ -1069,12 +1069,8 @@ async def crear_ficha(
             # 🎬 ESTILO FONDO COMPLETO - Página completa épica
             logger.info(f"🎬 Creando estilo FONDO COMPLETO épico")
 
-            # Crear fondo completo con personaje grande
-            fondo_con_personaje = crear_fondo_completo_epico(fondo_img, personaje_img, a4_width, a4_height, numero_pagina)
-
-            # Configurar texto con sombra blanca
-            canvas = Image.new('RGB', (a4_width, a4_height), 'white')
-            canvas.paste(fondo_con_personaje, (0, 0))
+            # Crear fondo completo con personaje grande (YA ES LA PÁGINA COMPLETA)
+            canvas = crear_fondo_completo_epico(fondo_img, personaje_img, a4_width, a4_height, numero_pagina)
             draw = ImageDraw.Draw(canvas)
 
             # Cargar fuentes
