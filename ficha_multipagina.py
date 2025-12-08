@@ -1112,14 +1112,14 @@ async def crear_ficha(
             # Cargar fuentes MÁS GRANDES para mejor legibilidad infantil
             try:
                 # Fuentes más grandes para niños
-                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 90)  # MUCHO MÁS GRANDE para ocupar burbuja
-                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 90)
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 72)  # Tamaño elegante para lectura cómoda
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
                 font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
             except:
                 try:
                     # Intentar fuentes serif/manuscritas como fallback - MÁS GRANDES
-                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 90)  # Serif MUCHO más grande
-                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 90)
+                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 72)  # Serif elegante
+                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 72)
                     font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
                 except:
                     font_normal = ImageFont.load_default()
@@ -1142,7 +1142,7 @@ async def crear_ficha(
 
             # NUEVO: Ancho de texto ajustado a la burbuja armónica (80% de hoja)
             margin_horizontal = a4_width * 0.1  # 10% margen cada lado
-            bubble_padding_text = 25  # PADDING REDUCIDO igual al de la burbuja
+            bubble_padding_text = 35  # PADDING ELEGANTE igual al de la burbuja
             max_width_texto = (a4_width * 0.8) - (bubble_padding_text * 2)  # Ancho dentro de la burbuja
 
             # ============ DETECTAR POSICIÓN DEL PERSONAJE ============
@@ -1159,16 +1159,16 @@ async def crear_ficha(
 
             # ============ ZONAS EXPANDIDAS PARA DOBLE TEXTO ============
             if position_type == 'derecha_dramatico':
-                # Personaje derecha-abajo → Texto en zona superior-izquierda EXPANDIDA (MÁS ABAJO)
-                zona_texto = {'x_start': 100, 'x_end': 1600, 'y_start': 450, 'y_end': 1600, 'nombre': 'superior-izq-expandida'}
+                # Personaje derecha-abajo → Texto en zona INFERIOR para destacar imagen
+                zona_texto = {'x_start': 100, 'x_end': 1600, 'y_start': 650, 'y_end': 1800, 'nombre': 'inferior-izq-expandida'}
 
             elif position_type == 'izquierda_accion':
-                # Personaje izquierda-abajo → Texto en zona superior-derecha EXPANDIDA (MÁS ABAJO)
-                zona_texto = {'x_start': 900, 'x_end': 2380, 'y_start': 450, 'y_end': 1600, 'nombre': 'superior-der-expandida'}
+                # Personaje izquierda-abajo → Texto en zona INFERIOR para destacar imagen
+                zona_texto = {'x_start': 900, 'x_end': 2380, 'y_start': 650, 'y_end': 1800, 'nombre': 'inferior-der-expandida'}
 
             elif position_type == 'centro_exploracion':
-                # Personaje centro-abajo → Texto en zona superior MUY AMPLIA (MÁS ABAJO)
-                zona_texto = {'x_start': 100, 'x_end': 2380, 'y_start': 400, 'y_end': 1200, 'nombre': 'superior-completo'}
+                # Personaje centro-abajo → Texto en zona INFERIOR AMPLIA para destacar imagen
+                zona_texto = {'x_start': 100, 'x_end': 2380, 'y_start': 600, 'y_end': 1400, 'nombre': 'inferior-completo'}
 
             elif position_type == 'derecha_tension':
                 # Personaje derecha-centro → Texto en zona izquierda MUY EXPANDIDA
@@ -1228,7 +1228,7 @@ async def crear_ficha(
             # ============ CREAR BURBUJA GRANDE ARMONIOSAMENTE ANCHA ============
             if todas_las_lineas:
                 # Calcular dimensiones de la burbuja - ANCHO ARMÓNICO 80% DE LA HOJA
-                bubble_padding = 25  # Padding REDUCIDO para aprovechar mejor el espacio
+                bubble_padding = 35  # Padding ELEGANTE para espaciado cómodo
                 bubble_radius = 35   # Esquinas más redondeadas estilo burbuja de diálogo
 
                 # ANCHO FIJO: 80% del ancho de la página (20% márgenes total = 10% cada lado)
