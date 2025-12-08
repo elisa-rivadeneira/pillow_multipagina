@@ -574,29 +574,37 @@ def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='black', m
 
     # ============ CREAR SOMBRA BLANCA INTENSA TIPO NUBE ============
 
-    # Capa 1: Nube base SÚPER difuminada y extensa
+    # ============ RESPLANDOR BLANCO SÚPER INTENSO ============
+
+    # Capa 1: Resplandor base GIGANTE
     sombra_img1 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
     sombra_draw1 = ImageDraw.Draw(sombra_img1)
     sombra_draw1.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur1 = sombra_img1.filter(ImageFilter.GaussianBlur(radius=20))  # Era 12 → Ahora 20 (nube GIGANTE)
+    sombra_blur1 = sombra_img1.filter(ImageFilter.GaussianBlur(radius=25))  # Era 20 → Ahora 25 (resplandor MASIVO)
 
-    # Capa 2: Nube media INTENSA
+    # Capa 2: Resplandor medio MUY INTENSO
     sombra_img2 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
     sombra_draw2 = ImageDraw.Draw(sombra_img2)
     sombra_draw2.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur2 = sombra_img2.filter(ImageFilter.GaussianBlur(radius=15))  # Era 8 → Ahora 15
+    sombra_blur2 = sombra_img2.filter(ImageFilter.GaussianBlur(radius=18))  # Era 15 → Ahora 18
 
-    # Capa 3: Nube cercana para densidad
+    # Capa 3: Resplandor denso
     sombra_img3 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
     sombra_draw3 = ImageDraw.Draw(sombra_img3)
     sombra_draw3.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur3 = sombra_img3.filter(ImageFilter.GaussianBlur(radius=10))  # Era 4 → Ahora 10
+    sombra_blur3 = sombra_img3.filter(ImageFilter.GaussianBlur(radius=12))  # Era 10 → Ahora 12
 
-    # Capa 4: Nube muy cercana para mayor intensidad
+    # Capa 4: Resplandor cercano SÚPER INTENSO
     sombra_img4 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
     sombra_draw4 = ImageDraw.Draw(sombra_img4)
     sombra_draw4.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
-    sombra_blur4 = sombra_img4.filter(ImageFilter.GaussianBlur(radius=5))  # Capa adicional
+    sombra_blur4 = sombra_img4.filter(ImageFilter.GaussianBlur(radius=7))  # Era 5 → Ahora 7
+
+    # Capa 5: Resplandor inmediato para máxima intensidad
+    sombra_img5 = Image.new('RGBA', (temp_width, temp_height), (0, 0, 0, 0))
+    sombra_draw5 = ImageDraw.Draw(sombra_img5)
+    sombra_draw5.text((blur_margin, blur_margin), texto, font=font, fill=(255, 255, 255, 255))
+    sombra_blur5 = sombra_img5.filter(ImageFilter.GaussianBlur(radius=3))  # Capa adicional muy cercana
 
     # ============ COMBINAR CAPAS DE SOMBRA ============
     # Crear canvas final para pegar las sombras
@@ -606,12 +614,13 @@ def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='black', m
     paste_x = max(0, x - blur_margin)
     paste_y = max(0, y - blur_margin)
 
-    # Pegar las capas de sombra BLANCA INTENSA (de más difusa a menos difusa)
+    # Pegar las capas de RESPLANDOR BLANCO MASIVO (de más difusa a menos difusa)
     try:
-        canvas_img.paste(sombra_blur1, (paste_x, paste_y), sombra_blur1)  # Nube base gigante
-        canvas_img.paste(sombra_blur2, (paste_x, paste_y), sombra_blur2)  # Nube media
-        canvas_img.paste(sombra_blur3, (paste_x, paste_y), sombra_blur3)  # Nube densa
-        canvas_img.paste(sombra_blur4, (paste_x, paste_y), sombra_blur4)  # Nube intensa
+        canvas_img.paste(sombra_blur1, (paste_x, paste_y), sombra_blur1)  # Resplandor base gigante
+        canvas_img.paste(sombra_blur2, (paste_x, paste_y), sombra_blur2)  # Resplandor medio
+        canvas_img.paste(sombra_blur3, (paste_x, paste_y), sombra_blur3)  # Resplandor denso
+        canvas_img.paste(sombra_blur4, (paste_x, paste_y), sombra_blur4)  # Resplandor cercano
+        canvas_img.paste(sombra_blur5, (paste_x, paste_y), sombra_blur5)  # Resplandor inmediato INTENSO
     except:
         # Fallback: sombra blanca extensa si hay problemas
         offsets = [(-15, -15), (-15, 0), (-15, 15), (0, -15), (0, 15), (15, -15), (15, 0), (15, 15),
@@ -621,8 +630,8 @@ def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='black', m
         for offset_x, offset_y in offsets:
             draw.text((x + offset_x, y + offset_y), texto, font=font, fill='white')
 
-    # ============ TEXTO PRINCIPAL NEGRO SÓLIDO ============
-    draw.text((x, y), texto, font=font, fill='black')  # NEGRO FORZADO
+    # ============ TEXTO PRINCIPAL BLANCO INTENSO ============
+    draw.text((x, y), texto, font=font, fill='white')  # BLANCO para resplandor total
 
     try:
         return draw.textlength(texto, font=font)
