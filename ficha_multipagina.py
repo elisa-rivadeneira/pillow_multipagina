@@ -1145,38 +1145,16 @@ async def crear_ficha(
             bubble_padding_text = 35  # PADDING ELEGANTE igual al de la burbuja
             max_width_texto = (a4_width * 0.8) - (bubble_padding_text * 2)  # Ancho dentro de la burbuja
 
-            # ============ DETECTAR POSICIÓN DEL PERSONAJE ============
-            # Obtener info de dónde está el personaje según página
-            personaje_positions = [
-                'derecha_dramatico',    # Página 1: Personaje derecha-abajo
-                'izquierda_accion',     # Página 2: Personaje izquierda-abajo
-                'centro_exploracion',   # Página 3: Personaje centro-abajo
-                'derecha_tension',      # Página 4: Personaje derecha-centro
-                'centro_triunfo'        # Página 5: Personaje centro-centro
-            ]
-
-            position_type = personaje_positions[(numero_pagina - 1) % len(personaje_positions)]
-
-            # ============ ZONAS EXPANDIDAS PARA DOBLE TEXTO ============
-            if position_type == 'derecha_dramatico':
-                # Personaje derecha-abajo → Texto en zona INFERIOR para destacar imagen
-                zona_texto = {'x_start': 100, 'x_end': 1600, 'y_start': 650, 'y_end': 1800, 'nombre': 'inferior-izq-expandida'}
-
-            elif position_type == 'izquierda_accion':
-                # Personaje izquierda-abajo → Texto en zona INFERIOR para destacar imagen
-                zona_texto = {'x_start': 900, 'x_end': 2380, 'y_start': 650, 'y_end': 1800, 'nombre': 'inferior-der-expandida'}
-
-            elif position_type == 'centro_exploracion':
-                # Personaje centro-abajo → Texto en zona INFERIOR AMPLIA para destacar imagen
-                zona_texto = {'x_start': 100, 'x_end': 2380, 'y_start': 600, 'y_end': 1400, 'nombre': 'inferior-completo'}
-
-            elif position_type == 'derecha_tension':
-                # Personaje derecha-centro → Texto en zona izquierda MUY EXPANDIDA
-                zona_texto = {'x_start': 100, 'x_end': 1300, 'y_start': 600, 'y_end': 2800, 'nombre': 'izquierda-maxima'}
-
-            else:  # centro_triunfo
-                # Personaje centro-centro → Texto en zona inferior MÁXIMA
-                zona_texto = {'x_start': 100, 'x_end': 2380, 'y_start': 2200, 'y_end': 3400, 'nombre': 'inferior-maximo'}
+            # ============ POSICIONAMIENTO FIJO: SIEMPRE ABAJO ============
+            # Texto SIEMPRE en la parte inferior para que la imagen principal esté arriba
+            margen_inferior = 120  # Margen para que no esté pegado al borde
+            zona_texto = {
+                'x_start': margin_horizontal,  # Alineado con la burbuja del 80%
+                'x_end': margin_horizontal + (a4_width * 0.8),  # 80% del ancho
+                'y_start': 1800,  # Zona inferior fija
+                'y_end': a4_height - margen_inferior,  # Hasta el final menos margen
+                'nombre': 'inferior-fijo'
+            }
 
             # Configurar área de texto
             texto_x_start = zona_texto['x_start']
@@ -1185,8 +1163,8 @@ async def crear_ficha(
             texto_y_end = zona_texto['y_end']
             # max_width_texto ya está calculado arriba correctamente para la burbuja del 80%
 
-            logger.info(f"📝 Zona de texto: {zona_texto['nombre']} | Personaje: {position_type}")
-            logger.info(f"📐 Área texto: X({texto_x_start}-{texto_x_end}) Y({texto_y_start}-{texto_y_end})")
+            logger.info(f"📝 Zona de texto: {zona_texto['nombre']} - SIEMPRE ABAJO")
+            logger.info(f"📐 Área texto: X({texto_x_start}-{texto_x_end}) Y({texto_y_start}-{texto_y_end}) | Margen inferior: {margen_inferior}px")
 
             # ============ CREAR UNA BURBUJA GRANDE PARA TODO EL TEXTO ============
 
