@@ -1138,18 +1138,18 @@ async def crear_ficha(
             canvas = crear_fondo_completo_epico(fondo_img, personaje_img, a4_width, a4_height, numero_pagina)
             draw = ImageDraw.Draw(canvas)
 
-            # Cargar fuentes INFANTILES GIGANTES para máxima legibilidad
+            # Cargar fuentes MANUSCRITAS más pequeñas para más texto
             try:
-                # Intentar fuentes más infantiles/redondeadas primero
-                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 85)
-                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 85)
-                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 160)
+                # Intentar fuentes manuscritas/cursivas primero
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 55)  # Era 85 → Ahora 55 (más pequeña)
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 55)
+                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)  # Era 160 → Ahora 120
             except:
                 try:
-                    # Fallback a DejaVu pero más redondeado
-                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 85)
-                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 85)
-                    font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 160)  # Sans en lugar de Serif
+                    # Intentar fuentes serif/manuscritas como fallback
+                    font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 55)  # Serif para estilo manuscrito
+                    font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 55)
+                    font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
                 except:
                     font_normal = ImageFont.load_default()
                     font_bold = ImageFont.load_default()
@@ -1166,10 +1166,10 @@ async def crear_ficha(
 
                 draw_texto_con_sombra_blanca(draw, title_x, title_y, titulo_capitalizado, font_titulo, '#FFD700')
 
-            # TEXTO con sombra blanca - EVITAR SOLAPAMIENTO CON PERSONAJE
-            line_spacing = 75
-            margin_left = 150
-            margin_right = 150
+            # TEXTO manuscrito con sombra blanca - DOBLE CAPACIDAD
+            line_spacing = 55  # Era 75 → Ahora 55 (más compacto para más líneas)
+            margin_left = 100  # Era 150 → Ahora 100 (aprovecha más espacio)
+            margin_right = 100
             max_width_texto = a4_width - margin_left - margin_right
 
             # ============ DETECTAR POSICIÓN DEL PERSONAJE ============
@@ -1184,26 +1184,26 @@ async def crear_ficha(
 
             position_type = personaje_positions[(numero_pagina - 1) % len(personaje_positions)]
 
-            # ============ SELECCIONAR ZONA LIBRE SEGÚN PERSONAJE ============
+            # ============ ZONAS EXPANDIDAS PARA DOBLE TEXTO ============
             if position_type == 'derecha_dramatico':
-                # Personaje derecha-abajo → Texto en zona superior-izquierda
-                zona_texto = {'x_start': 150, 'x_end': 1500, 'y_start': 400, 'y_end': 1400, 'nombre': 'superior-izq'}
+                # Personaje derecha-abajo → Texto en zona superior-izquierda EXPANDIDA
+                zona_texto = {'x_start': 100, 'x_end': 1600, 'y_start': 300, 'y_end': 1600, 'nombre': 'superior-izq-expandida'}
 
             elif position_type == 'izquierda_accion':
-                # Personaje izquierda-abajo → Texto en zona superior-derecha
-                zona_texto = {'x_start': 1000, 'x_end': 2300, 'y_start': 400, 'y_end': 1400, 'nombre': 'superior-der'}
+                # Personaje izquierda-abajo → Texto en zona superior-derecha EXPANDIDA
+                zona_texto = {'x_start': 900, 'x_end': 2380, 'y_start': 300, 'y_end': 1600, 'nombre': 'superior-der-expandida'}
 
             elif position_type == 'centro_exploracion':
-                # Personaje centro-abajo → Texto en zona superior-centro
-                zona_texto = {'x_start': 300, 'x_end': 2100, 'y_start': 300, 'y_end': 1000, 'nombre': 'superior-centro'}
+                # Personaje centro-abajo → Texto en zona superior MUY AMPLIA
+                zona_texto = {'x_start': 100, 'x_end': 2380, 'y_start': 250, 'y_end': 1200, 'nombre': 'superior-completo'}
 
             elif position_type == 'derecha_tension':
-                # Personaje derecha-centro → Texto en zona izquierda completa
-                zona_texto = {'x_start': 150, 'x_end': 1200, 'y_start': 800, 'y_end': 2500, 'nombre': 'izquierda-completa'}
+                # Personaje derecha-centro → Texto en zona izquierda MUY EXPANDIDA
+                zona_texto = {'x_start': 100, 'x_end': 1300, 'y_start': 600, 'y_end': 2800, 'nombre': 'izquierda-maxima'}
 
             else:  # centro_triunfo
-                # Personaje centro-centro → Texto en esquinas disponibles
-                zona_texto = {'x_start': 150, 'x_end': 2300, 'y_start': 2400, 'y_end': 3300, 'nombre': 'inferior-completo'}
+                # Personaje centro-centro → Texto en zona inferior MÁXIMA
+                zona_texto = {'x_start': 100, 'x_end': 2380, 'y_start': 2200, 'y_end': 3400, 'nombre': 'inferior-maximo'}
 
             # Configurar área de texto
             texto_x_start = zona_texto['x_start']
@@ -1215,10 +1215,12 @@ async def crear_ficha(
             logger.info(f"📝 Zona de texto: {zona_texto['nombre']} | Personaje: {position_type}")
             logger.info(f"📐 Área texto: X({texto_x_start}-{texto_x_end}) Y({texto_y_start}-{texto_y_end})")
 
-            # Dividir texto en párrafos y procesar línea por línea
+            # Dividir texto en párrafos y procesar MUCHO MÁS texto
             paragrafos = texto_cuento.strip().split('\n\n')
             current_y = texto_y_start
-            max_lines = int((texto_y_end - texto_y_start) / line_spacing)
+            max_lines = int((texto_y_end - texto_y_start) / line_spacing) + 3  # +3 líneas extra aprovechando espacio
+
+            logger.info(f"📝 Capacidad texto manuscrito: {max_lines} líneas (doble capacidad)")
 
             lines_used = 0
             for i, parrafo in enumerate(paragrafos):
