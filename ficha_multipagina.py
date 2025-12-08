@@ -1080,11 +1080,11 @@ async def crear_ficha(
             canvas = crear_fondo_completo_epico(fondo_img, personaje_img, a4_width, a4_height, numero_pagina)
             draw = ImageDraw.Draw(canvas)
 
-            # Cargar fuentes
+            # Cargar fuentes MÁS GRANDES para mejor legibilidad
             try:
-                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 58)  # Más grande
-                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 58)
-                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 72)  # Era 58 → Ahora 72
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
+                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 140)  # Era 120 → Ahora 140
             except:
                 font_normal = ImageFont.load_default()
                 font_bold = ImageFont.load_default()
