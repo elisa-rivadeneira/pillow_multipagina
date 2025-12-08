@@ -424,6 +424,156 @@ def combinar_fondo_personaje(fondo_img: Image.Image, personaje_img: Image.Image,
 
     return resultado.convert('RGB')
 
+def crear_fondo_completo_epico(fondo_img: Image.Image, personaje_img: Image.Image, a4_width: int, a4_height: int, numero_pagina: int = 1) -> Image.Image:
+    """🎬 ESTILO FONDO COMPLETO - Fondo ocupa toda la página, personaje grande estilo WOW cinematográfico."""
+
+    # ============ 1. FONDO GIGANTE TODA LA PÁGINA ============
+    fondo_aspect = fondo_img.width / fondo_img.height
+    page_aspect = a4_width / a4_height
+
+    if fondo_aspect < page_aspect:
+        # Imagen más alta que la página - ajustar por ancho
+        new_width = a4_width
+        new_height = int(a4_width / fondo_aspect)
+        fondo_resized = fondo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        # Centrar verticalmente
+        y_offset = (new_height - a4_height) // 2
+        fondo_final = fondo_resized.crop((0, y_offset, a4_width, y_offset + a4_height))
+    else:
+        # Imagen más ancha que la página - ajustar por altura
+        new_height = a4_height
+        new_width = int(a4_height * fondo_aspect)
+        fondo_resized = fondo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        # Centrar horizontalmente
+        x_offset = (new_width - a4_width) // 2
+        fondo_final = fondo_resized.crop((x_offset, 0, x_offset + a4_width, a4_height))
+
+    # ============ 2. POSICIONAMIENTO DINÁMICO DEL PERSONAJE ============
+    personaje_scales = [0.7, 0.6, 0.65, 0.75, 0.8]  # Escalas grandes épicas
+    personaje_positions = [
+        'derecha_dramatico',    # Página 1: Presentación épica
+        'izquierda_accion',     # Página 2: Acción dinámica
+        'centro_exploracion',   # Página 3: Exploración
+        'derecha_tension',      # Página 4: Tensión
+        'centro_triunfo'        # Página 5: Resolución triunfante
+    ]
+
+    scale = personaje_scales[(numero_pagina - 1) % len(personaje_scales)]
+    position_type = personaje_positions[(numero_pagina - 1) % len(personaje_positions)]
+
+    # Calcular tamaño del personaje (GRANDE estilo WOW)
+    max_personaje_height = int(a4_height * scale)
+    personaje_aspect = personaje_img.width / personaje_img.height
+    personaje_height = min(max_personaje_height, personaje_img.height)
+    personaje_width = int(personaje_height * personaje_aspect)
+
+    # Limitar ancho si es necesario
+    if personaje_width > a4_width * 0.6:
+        personaje_width = int(a4_width * 0.6)
+        personaje_height = int(personaje_width / personaje_aspect)
+
+    personaje_resized = personaje_img.resize((personaje_width, personaje_height), Image.Resampling.LANCZOS)
+
+    # ============ 3. POSICIONAMIENTO SEGÚN TIPO ============
+    if position_type == 'derecha_dramatico':
+        personaje_x = a4_width - personaje_width - 100
+        personaje_y = a4_height - personaje_height - 100
+    elif position_type == 'izquierda_accion':
+        personaje_x = 100
+        personaje_y = a4_height - personaje_height - 150
+    elif position_type == 'centro_exploracion':
+        personaje_x = (a4_width - personaje_width) // 2
+        personaje_y = a4_height - personaje_height - 200
+    elif position_type == 'derecha_tension':
+        personaje_x = a4_width - personaje_width - 80
+        personaje_y = (a4_height - personaje_height) // 2
+    else:  # centro_triunfo
+        personaje_x = (a4_width - personaje_width) // 2
+        personaje_y = (a4_height - personaje_height) // 2 + 100
+
+    # ============ 4. EFECTOS CINEMATOGRÁFICOS ============
+    resultado = fondo_final.copy().convert('RGBA')
+
+    # Sombra épica del personaje
+    sombra = Image.new('RGBA', resultado.size, (0, 0, 0, 0))
+    sombra_draw = ImageDraw.Draw(sombra)
+
+    # Sombra más dramática para este estilo
+    shadow_offset = 25
+    sombra_draw.ellipse([
+        personaje_x + shadow_offset,
+        personaje_y + personaje_height - 50,
+        personaje_x + personaje_width + shadow_offset + 40,
+        personaje_y + personaje_height + 60
+    ], fill=(0, 0, 0, 120))
+
+    # Desenfocar sombra
+    from PIL import ImageFilter
+    sombra = sombra.filter(ImageFilter.GaussianBlur(radius=15))
+    resultado = Image.alpha_composite(resultado, sombra)
+
+    # ============ 5. PEGAR PERSONAJE ============
+    if personaje_resized.mode == 'RGBA':
+        resultado.paste(personaje_resized, (personaje_x, personaje_y), personaje_resized)
+    else:
+        resultado.paste(personaje_resized, (personaje_x, personaje_y))
+
+    # ============ 6. EFECTOS FINALES CINEMATOGRÁFICOS ============
+    # Viñeta más pronunciada
+    viñeta = Image.new('RGBA', resultado.size, (0, 0, 0, 0))
+    viñeta_draw = ImageDraw.Draw(viñeta)
+
+    center_x, center_y = a4_width // 2, a4_height // 2
+    max_radius = max(a4_width, a4_height) // 2
+
+    for i in range(0, max_radius, 15):
+        alpha = int(50 * (i / max_radius))  # Viñeta más intensa
+        viñeta_draw.ellipse([
+            center_x - max_radius + i, center_y - max_radius + i,
+            center_x + max_radius - i, center_y + max_radius - i
+        ], outline=(0, 0, 0, alpha), width=20)
+
+    resultado = Image.alpha_composite(resultado, viñeta)
+
+    # Realce de color más dramático
+    from PIL import ImageEnhance
+    enhancer = ImageEnhance.Color(resultado)
+    resultado = enhancer.enhance(1.2)  # +20% saturación
+
+    enhancer = ImageEnhance.Contrast(resultado)
+    resultado = enhancer.enhance(1.1)  # +10% contraste
+
+    logger.info(f"🎬 Fondo completo épico creado - Página {numero_pagina}: Posición '{position_type}', Escala {scale}")
+
+    return resultado.convert('RGB')
+
+def draw_texto_con_sombra_blanca(draw, x, y, texto, font, color_texto='#2C3E50', max_width=None):
+    """📝 Dibuja texto con sombra blanca para máxima legibilidad sobre fondos complejos."""
+
+    # Sombra blanca múltiple para máximo contraste
+    sombra_offsets = [
+        (-3, -3), (-3, 0), (-3, 3),
+        (0, -3), (0, 3),
+        (3, -3), (3, 0), (3, 3),
+        # Sombra adicional para más contraste
+        (-2, -2), (-2, 2), (2, -2), (2, 2)
+    ]
+
+    # Dibujar sombras blancas
+    for offset_x, offset_y in sombra_offsets:
+        draw.text((x + offset_x, y + offset_y), texto, font=font, fill='white')
+
+    # Dibujar texto principal
+    if max_width:
+        return draw_formatted_line(draw, x, y, texto, {'normal': font}, color_texto, max_width)
+    else:
+        draw.text((x, y), texto, font=font, fill=color_texto)
+        try:
+            return draw.textlength(texto, font=font)
+        except AttributeError:
+            bbox = draw.textbbox((0, 0), texto, font=font)
+            return bbox[2] - bbox[0]
+
 # ============================================================================
 # FUNCIONES PARA MULTIPÁGINA
 # ============================================================================
@@ -887,6 +1037,7 @@ async def crear_ficha(
     titulo: str = Form(default=""),
     header_height: int = Form(default=1150),
     estilo: str = Form(default="infantil"),
+    tipo_composicion: str = Form(default="header_texto"),
     es_primera_pagina: bool = Form(default=True),
     numero_pagina: int = Form(default=1),
     total_paginas: int = Form(default=999),
@@ -910,40 +1061,103 @@ async def crear_ficha(
         personaje_img = Image.open(io.BytesIO(personaje_bytes))
         personaje_img = remover_fondo_blanco(personaje_img)
 
-        # Combinar fondo + personaje con efectos épicos
-        header_img = combinar_fondo_personaje(fondo_img, personaje_img, header_height, numero_pagina, total_paginas)
+        # ============ ELEGIR TIPO DE COMPOSICIÓN ============
+        a4_width = 2480
+        a4_height = 3508
 
-        margin_left = 160
-        margin_right = 160
-        max_width_px = 2480 - margin_left - margin_right
-        
-        try:
-            font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 52)
-            font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 52)
-        except:
-            font_normal = ImageFont.load_default()
-            font_bold = ImageFont.load_default()
-        
-        fonts = {
-            'normal': font_normal,
-            'bold': font_bold,
-            'italic': font_bold,
-            'bold_italic': font_bold
-        }
-        
-        temp_draw = ImageDraw.Draw(Image.new('RGB', (1, 1)))
-        texto_lines = wrap_text_with_markdown(texto_cuento, fonts, max_width_px, temp_draw)
-        
-        pagina_img = crear_pagina_cuento(
-            header_img=header_img,
-            texto_pagina=texto_lines,
-            titulo=titulo,
-            es_primera_pagina=es_primera_pagina,
-            numero_pagina=numero_pagina,
-            total_paginas=total_paginas,
-            header_height=header_height,
-            estilo=estilo
-        )
+        if tipo_composicion == "fondo_completo":
+            # 🎬 ESTILO FONDO COMPLETO - Página completa épica
+            logger.info(f"🎬 Creando estilo FONDO COMPLETO épico")
+
+            # Crear fondo completo con personaje grande
+            fondo_con_personaje = crear_fondo_completo_epico(fondo_img, personaje_img, a4_width, a4_height, numero_pagina)
+
+            # Configurar texto con sombra blanca
+            canvas = Image.new('RGB', (a4_width, a4_height), 'white')
+            canvas.paste(fondo_con_personaje, (0, 0))
+            draw = ImageDraw.Draw(canvas)
+
+            # Cargar fuentes
+            try:
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 58)  # Más grande
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 58)
+                font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 120)
+            except:
+                font_normal = ImageFont.load_default()
+                font_bold = ImageFont.load_default()
+                font_titulo = ImageFont.load_default()
+
+            # TÍTULO con sombra blanca épica (solo primera página)
+            if es_primera_pagina and titulo:
+                titulo_capitalizado = to_title_case(titulo)
+                bbox_title = draw.textbbox((0, 0), titulo_capitalizado, font=font_titulo)
+                title_width = bbox_title[2] - bbox_title[0]
+
+                title_x = (a4_width - title_width) // 2
+                title_y = 150  # Arriba de la página
+
+                draw_texto_con_sombra_blanca(draw, title_x, title_y, titulo_capitalizado, font_titulo, '#FFD700')
+
+            # TEXTO con sombra blanca - área libre central
+            texto_y_start = 1800  # Zona central/inferior libre
+            line_spacing = 90
+            margin_left = 200
+            margin_right = 200
+            max_width_texto = a4_width - margin_left - margin_right
+
+            lineas = texto_cuento.split('\n')
+            current_y = texto_y_start
+
+            for linea in lineas[:6]:  # Máximo 6 líneas para que se vea bien
+                if linea.strip() and current_y < a4_height - 200:
+                    draw_texto_con_sombra_blanca(draw, margin_left, current_y, linea.strip(), font_normal)
+                    current_y += line_spacing
+
+            # Número de página
+            if total_paginas > 1:
+                page_text = f"{numero_pagina}"
+                draw_texto_con_sombra_blanca(draw, a4_width - 200, a4_height - 150, page_text, font_bold, '#FFD700')
+
+            pagina_img = canvas
+
+        else:
+            # 🎨 ESTILO HEADER+TEXTO ORIGINAL (por defecto)
+            logger.info(f"🎨 Creando estilo HEADER+TEXTO original")
+
+            # Combinar fondo + personaje con efectos épicos
+            header_img = combinar_fondo_personaje(fondo_img, personaje_img, header_height, numero_pagina, total_paginas)
+
+            margin_left = 160
+            margin_right = 160
+            max_width_px = 2480 - margin_left - margin_right
+
+            try:
+                font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 52)
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 52)
+            except:
+                font_normal = ImageFont.load_default()
+                font_bold = ImageFont.load_default()
+
+            fonts = {
+                'normal': font_normal,
+                'bold': font_bold,
+                'italic': font_bold,
+                'bold_italic': font_bold
+            }
+
+            temp_draw = ImageDraw.Draw(Image.new('RGB', (1, 1)))
+            texto_lines = wrap_text_with_markdown(texto_cuento, fonts, max_width_px, temp_draw)
+
+            pagina_img = crear_pagina_cuento(
+                header_img=header_img,
+                texto_pagina=texto_lines,
+                titulo=titulo,
+                es_primera_pagina=es_primera_pagina,
+                numero_pagina=numero_pagina,
+                total_paginas=total_paginas,
+                header_height=header_height,
+                estilo=estilo
+            )
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         titulo_sanitizado = sanitize_filename(titulo) if titulo else "Sin_Titulo"
