@@ -1183,11 +1183,11 @@ async def crear_ficha(
 
             # ============ POSICIONAMIENTO FIJO: SIEMPRE ABAJO ============
             # Texto SIEMPRE en la parte inferior para que la imagen principal esté arriba
-            margen_inferior = 180  # MARGEN MAYOR para que no esté pegado al borde
+            margen_inferior = 20  # MARGEN MÍNIMO para aprovechar mejor el fondo
             zona_texto = {
                 'x_start': margin_horizontal,  # Alineado con la burbuja del 80%
                 'x_end': margin_horizontal + (a4_width * 0.8),  # 80% del ancho
-                'y_start': 1900,  # Zona inferior fija (un poco más abajo)
+                'y_start': 2000,  # Zona inferior más baja para apreciar mejor fondo
                 'y_end': a4_height - margen_inferior,  # Hasta el final menos margen
                 'nombre': 'inferior-fijo'
             }
