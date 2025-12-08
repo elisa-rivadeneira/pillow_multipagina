@@ -215,6 +215,31 @@ def detectar_espacios_libres(img: Image.Image) -> list:
     # Ordenar por menos densidad (valores más bajos = menos detalle = mejor para personaje)
     return sorted(espacios_libres, key=lambda x: x[1])
 
+def remover_fondo_blanco(img: Image.Image, umbral: int = 240) -> Image.Image:
+    """🎭 Remueve fondo blanco/claro del personaje para hacerlo transparente."""
+    # Convertir a RGBA si no lo está
+    if img.mode != 'RGBA':
+        img = img.convert('RGBA')
+
+    # Obtener datos de píxeles
+    data = img.getdata()
+    nueva_data = []
+
+    for item in data:
+        # Si el píxel es muy blanco (R, G, B altos), hacerlo transparente
+        if item[0] > umbral and item[1] > umbral and item[2] > umbral:
+            # Hacer transparente (alpha = 0)
+            nueva_data.append((item[0], item[1], item[2], 0))
+        else:
+            # Mantener píxel original
+            nueva_data.append(item)
+
+    # Aplicar nueva data
+    img_transparente = Image.new('RGBA', img.size)
+    img_transparente.putdata(nueva_data)
+
+    return img_transparente
+
 def aplicar_efectos_visuales(img: Image.Image, personaje_pos: tuple, personaje_size: tuple) -> Image.Image:
     """Aplica efectos visuales espectaculares."""
     from PIL import ImageFilter, ImageEnhance
@@ -880,11 +905,10 @@ async def crear_ficha(
         if fondo_img.mode != 'RGB':
             fondo_img = fondo_img.convert('RGB')
 
-        # Procesar imagen personaje
+        # Procesar imagen personaje y remover fondo blanco
         personaje_bytes = await imagen_personaje.read()
         personaje_img = Image.open(io.BytesIO(personaje_bytes))
-        if personaje_img.mode != 'RGBA':
-            personaje_img = personaje_img.convert('RGBA')
+        personaje_img = remover_fondo_blanco(personaje_img)
 
         # Combinar fondo + personaje con efectos épicos
         header_img = combinar_fondo_personaje(fondo_img, personaje_img, header_height, numero_pagina, total_paginas)
