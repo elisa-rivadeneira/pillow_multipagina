@@ -1258,19 +1258,8 @@ async def crear_ficha(
                     font_bold = ImageFont.load_default()
                     font_titulo = ImageFont.load_default()
 
-            # TÍTULO con sombra blanca épica (solo primera página) - PERO NO AFECTA POSICIÓN DEL TEXTO
-            if es_primera_pagina and titulo:
-                logger.info(f"🏷️ Agregando título en página 1: '{titulo[:30]}...'")
-                titulo_capitalizado = to_title_case(titulo)
-                bbox_title = draw.textbbox((0, 0), titulo_capitalizado, font=font_titulo)
-                title_width = bbox_title[2] - bbox_title[0]
-
-                title_x = (a4_width - title_width) // 2
-                title_y = 150  # Arriba de la página - NO AFECTA la burbuja de texto
-
-                draw_texto_con_sombra_blanca(draw, title_x, title_y, titulo_capitalizado, font_titulo, '#FFD700')
-            else:
-                logger.info(f"🚫 NO hay título para página {numero_pagina}")
+            # NO TÍTULO EN MODO FONDO_COMPLETO - La portada ya tiene el título
+            logger.info(f"🚫 Modo fondo_completo: Sin título en página {numero_pagina} (título va en portada)")
 
             # TEXTO manuscrito con interlineado cómodo para niños
             line_spacing = 95  # INTERLINEADO GRANDE para ocupar toda la burbuja (era 75)
