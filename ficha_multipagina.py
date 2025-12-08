@@ -187,11 +187,122 @@ def draw_wavy_border(draw, a4_width, a4_height):
         wave_y_bottom = a4_height - margin - wave_width * math.sin(x * 0.05)
         draw.ellipse([x, wave_y_bottom - 5, x + 10, wave_y_bottom + 5], fill=colors[x % len(colors)])
 
-def combinar_fondo_personaje(fondo_img: Image.Image, personaje_img: Image.Image, header_height: int) -> Image.Image:
-    """Combina imagen de fondo con personaje para crear header dinámico."""
+def detectar_espacios_libres(img: Image.Image) -> list:
+    """Detecta zonas de la imagen con menos detalle/contenido para posicionar personajes."""
+    import numpy as np
+    from PIL import ImageFilter
+
+    # Convertir a numpy para análisis
+    img_gray = img.convert('L')
+    img_array = np.array(img_gray)
+
+    # Detectar bordes (zonas con mucho detalle)
+    edges = np.array(img.filter(ImageFilter.EDGE_ENHANCE_MORE).convert('L'))
+
+    # Dividir imagen en cuadrantes y analizar densidad
+    h, w = img_array.shape
+    cuadrantes = {
+        'superior_izq': (0, 0, w//2, h//2),
+        'superior_der': (w//2, 0, w, h//2),
+        'inferior_izq': (0, h//2, w//2, h),
+        'inferior_der': (w//2, h//2, w, h),
+        'centro': (w//4, h//4, 3*w//4, 3*h//4)
+    }
+
+    espacios_libres = []
+    for zona, (x1, y1, x2, y2) in cuadrantes.items():
+        region_edges = edges[y1:y2, x1:x2]
+        densidad = np.mean(region_edges)
+        espacios_libres.append((zona, densidad, (x1, y1, x2, y2)))
+
+    # Ordenar por menos densidad (más espacio libre)
+    return sorted(espacios_libres, key=lambda x: x[1])
+
+def aplicar_efectos_visuales(img: Image.Image, personaje_pos: tuple, personaje_size: tuple) -> Image.Image:
+    """Aplica efectos visuales espectaculares."""
+    from PIL import ImageFilter, ImageEnhance
+
+    # Crear sombra del personaje
+    sombra = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    sombra_draw = ImageDraw.Draw(sombra)
+
+    x, y = personaje_pos
+    w, h = personaje_size
+
+    # Sombra proyectada (offset diagonal)
+    shadow_offset_x, shadow_offset_y = 15, 20
+    shadow_x = x + shadow_offset_x
+    shadow_y = y + shadow_offset_y
+
+    # Crear forma de sombra elíptica
+    sombra_draw.ellipse([
+        shadow_x, shadow_y + h//2,
+        shadow_x + w, shadow_y + h + 30
+    ], fill=(0, 0, 0, 80))
+
+    # Desenfocar sombra
+    sombra = sombra.filter(ImageFilter.GaussianBlur(radius=8))
+
+    # Aplicar sombra al fondo
+    img = Image.alpha_composite(img.convert('RGBA'), sombra)
+
+    # Añadir viñeta sutil
+    viñeta = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    viñeta_draw = ImageDraw.Draw(viñeta)
+
+    # Gradiente radial simulado con círculos concéntricos
+    center_x, center_y = img.width // 2, img.height // 2
+    max_radius = max(img.width, img.height) // 2
+
+    for i in range(0, max_radius, 20):
+        alpha = int(30 * (i / max_radius))  # Viñeta muy sutil
+        viñeta_draw.ellipse([
+            center_x - max_radius + i, center_y - max_radius + i,
+            center_x + max_radius - i, center_y + max_radius - i
+        ], outline=(0, 0, 0, alpha), width=15)
+
+    img = Image.alpha_composite(img, viñeta)
+
+    return img.convert('RGB')
+
+def get_layout_dinamico(numero_pagina: int, total_paginas: int) -> dict:
+    """Determina el layout según la página para crear variedad visual."""
+    layouts = [
+        # Página 1: Presentación épica
+        {
+            'personaje_scale': 0.6, 'position': 'centro_derecha',
+            'efectos': ['sombra_dramática', 'brillo'], 'tipo': 'presentacion'
+        },
+        # Página 2: Acción/Movimiento
+        {
+            'personaje_scale': 0.45, 'position': 'esquina_inferior_izq',
+            'efectos': ['dinamismo'], 'tipo': 'accion'
+        },
+        # Página 3: Exploración
+        {
+            'personaje_scale': 0.3, 'position': 'superior_izquierda',
+            'efectos': ['aventura'], 'tipo': 'exploracion'
+        },
+        # Página 4: Conflicto/Tensión
+        {
+            'personaje_scale': 0.5, 'position': 'centro_izquierda',
+            'efectos': ['tension'], 'tipo': 'conflicto'
+        },
+        # Página 5+: Resolución
+        {
+            'personaje_scale': 0.55, 'position': 'centro',
+            'efectos': ['triunfo'], 'tipo': 'resolucion'
+        }
+    ]
+
+    # Ciclar layouts si hay más de 5 páginas
+    return layouts[(numero_pagina - 1) % len(layouts)]
+
+def combinar_fondo_personaje(fondo_img: Image.Image, personaje_img: Image.Image, header_height: int, numero_pagina: int = 1, total_paginas: int = 1) -> Image.Image:
+    """🎨 COMPOSICIÓN ÉPICA ESTILO PIXAR - Combina fondo + personaje con efectos visuales espectaculares."""
     a4_width = 2480
 
-    # Redimensionar fondo para que ocupe todo el header
+    # ============ 1. PREPARAR FONDO ============
     target_aspect = a4_width / header_height
     fondo_aspect = fondo_img.width / fondo_img.height
 
@@ -208,31 +319,86 @@ def combinar_fondo_personaje(fondo_img: Image.Image, personaje_img: Image.Image,
         left_crop = max(0, (new_width - a4_width) // 2)
         fondo_final = fondo_resized.crop((left_crop, 0, left_crop + a4_width, new_height))
 
-    # Redimensionar personaje (máximo 40% del ancho del header)
-    max_personaje_width = int(a4_width * 0.4)
+    # ============ 2. LAYOUT DINÁMICO ============
+    layout = get_layout_dinamico(numero_pagina, total_paginas)
+
+    # ============ 3. DETECTAR ESPACIOS LIBRES ============
+    espacios_libres = detectar_espacios_libres(fondo_final)
+    mejor_zona = espacios_libres[0][0] if espacios_libres else 'superior_der'
+
+    # ============ 4. REDIMENSIONAR PERSONAJE ============
+    personaje_scale = layout['personaje_scale']
+    max_personaje_width = int(a4_width * personaje_scale)
     personaje_aspect = personaje_img.width / personaje_img.height
 
     if personaje_img.width > max_personaje_width:
         personaje_width = max_personaje_width
         personaje_height = int(max_personaje_width / personaje_aspect)
     else:
-        personaje_width = personaje_img.width
-        personaje_height = personaje_img.height
+        personaje_width = int(personaje_img.width * personaje_scale)
+        personaje_height = int(personaje_img.height * personaje_scale)
 
-    # Asegurar que no sea más alto que el header
-    if personaje_height > header_height * 0.8:
-        personaje_height = int(header_height * 0.8)
+    # Límite de altura
+    if personaje_height > header_height * 0.85:
+        personaje_height = int(header_height * 0.85)
         personaje_width = int(personaje_height * personaje_aspect)
 
     personaje_resized = personaje_img.resize((personaje_width, personaje_height), Image.Resampling.LANCZOS)
 
-    # Posicionar personaje (lado derecho, centrado verticalmente)
-    personaje_x = a4_width - personaje_width - 100  # 100px del borde derecho
-    personaje_y = (header_height - personaje_height) // 2
+    # ============ 5. POSICIONAMIENTO INTELIGENTE ============
+    position_type = layout['position']
 
-    # Combinar imágenes
+    if position_type == 'centro_derecha':
+        personaje_x = a4_width - personaje_width - 120
+        personaje_y = (header_height - personaje_height) // 2
+    elif position_type == 'esquina_inferior_izq':
+        personaje_x = 80
+        personaje_y = header_height - personaje_height - 60
+    elif position_type == 'superior_izquierda':
+        personaje_x = 100
+        personaje_y = 80
+    elif position_type == 'centro_izquierda':
+        personaje_x = 150
+        personaje_y = (header_height - personaje_height) // 2
+    elif position_type == 'centro':
+        personaje_x = (a4_width - personaje_width) // 2
+        personaje_y = (header_height - personaje_height) // 2
+    else:
+        # Fallback: usar zona con menos detalle
+        if mejor_zona == 'superior_izq':
+            personaje_x, personaje_y = 100, 80
+        elif mejor_zona == 'superior_der':
+            personaje_x = a4_width - personaje_width - 120
+            personaje_y = 80
+        elif mejor_zona == 'inferior_izq':
+            personaje_x, personaje_y = 80, header_height - personaje_height - 60
+        else:  # inferior_der o centro
+            personaje_x = a4_width - personaje_width - 120
+            personaje_y = header_height - personaje_height - 60
+
+    # ============ 6. APLICAR EFECTOS VISUALES ============
     resultado = fondo_final.copy().convert('RGBA')
-    resultado.paste(personaje_resized, (personaje_x, personaje_y), personaje_resized if personaje_resized.mode == 'RGBA' else None)
+    resultado = aplicar_efectos_visuales(resultado, (personaje_x, personaje_y), (personaje_width, personaje_height))
+
+    # ============ 7. COMPOSICIÓN FINAL ============
+    resultado = resultado.convert('RGBA')
+
+    # Pegar personaje con transparencia
+    if personaje_resized.mode == 'RGBA':
+        resultado.paste(personaje_resized, (personaje_x, personaje_y), personaje_resized)
+    else:
+        resultado.paste(personaje_resized, (personaje_x, personaje_y))
+
+    # ============ 8. EFECTOS FINALES ============
+    # Realce de color sutil
+    from PIL import ImageEnhance
+    enhancer = ImageEnhance.Color(resultado)
+    resultado = enhancer.enhance(1.1)  # +10% saturación
+
+    enhancer = ImageEnhance.Contrast(resultado)
+    resultado = enhancer.enhance(1.05)  # +5% contraste
+
+    logger.info(f"🎨 Composición creada - Página {numero_pagina}: Layout '{layout['tipo']}', Zona '{mejor_zona}'")
 
     return resultado.convert('RGB')
 
@@ -723,8 +889,8 @@ async def crear_ficha(
         if personaje_img.mode != 'RGBA':
             personaje_img = personaje_img.convert('RGBA')
 
-        # Combinar fondo + personaje
-        header_img = combinar_fondo_personaje(fondo_img, personaje_img, header_height)
+        # Combinar fondo + personaje con efectos épicos
+        header_img = combinar_fondo_personaje(fondo_img, personaje_img, header_height, numero_pagina, total_paginas)
 
         margin_left = 160
         margin_right = 160
