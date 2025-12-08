@@ -21,6 +21,7 @@ app = FastAPI()
 
 class CombinarDocumentosRequest(BaseModel):
     rutas_archivos: List[str]
+    portada: str = None  # Base64 de la imagen de portada (opcional)
 
 # ============================================================================
 # FUNCIONES AUXILIARES
@@ -902,13 +903,88 @@ def crear_pagina_cuento(
     
     return canvas
 
+def crear_portada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -> Image.Image:
+    """Crea una portada hermosa desde imagen base64."""
+    import base64
+
+    # Decodificar base64
+    portada_bytes = base64.b64decode(portada_base64)
+    portada_img = Image.open(io.BytesIO(portada_bytes))
+    if portada_img.mode != 'RGB':
+        portada_img = portada_img.convert('RGB')
+
+    # Dimensiones A4
+    a4_width = 2480
+    a4_height = 3508
+
+    # ============ CREAR FONDO DE PORTADA A4 COMPLETO ============
+    portada_aspect = portada_img.width / portada_img.height
+    page_aspect = a4_width / a4_height
+
+    if portada_aspect < page_aspect:
+        new_width = a4_width
+        new_height = int(a4_width / portada_aspect)
+        portada_resized = portada_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        y_offset = (new_height - a4_height) // 2
+        canvas = portada_resized.crop((0, y_offset, a4_width, y_offset + a4_height))
+    else:
+        new_height = a4_height
+        new_width = int(a4_height * portada_aspect)
+        portada_resized = portada_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        x_offset = (new_width - a4_width) // 2
+        canvas = portada_resized.crop((x_offset, 0, x_offset + a4_width, a4_height))
+
+    if canvas.size != (a4_width, a4_height):
+        canvas = canvas.resize((a4_width, a4_height), Image.Resampling.LANCZOS)
+
+    draw = ImageDraw.Draw(canvas)
+
+    # ============ CARGAR FUENTES ELEGANTES ============
+    try:
+        font_titulo_grande = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 140)
+    except:
+        font_titulo_grande = ImageFont.load_default()
+
+    # ============ TÍTULO EN LA PARTE SUPERIOR ============
+    titulo_capitalizado = to_title_case(titulo)
+    bbox_titulo = draw.textbbox((0, 0), titulo_capitalizado, font=font_titulo_grande)
+    titulo_width = bbox_titulo[2] - bbox_titulo[0]
+    titulo_height = bbox_titulo[3] - bbox_titulo[1]
+
+    titulo_x = (a4_width - titulo_width) // 2
+    titulo_y = 300
+
+    # ============ BURBUJA PARA TÍTULO ============
+    padding_titulo = 50
+    bubble_titulo_width = titulo_width + (padding_titulo * 2)
+    bubble_titulo_height = titulo_height + (padding_titulo * 2)
+    bubble_titulo_x = titulo_x - padding_titulo
+    bubble_titulo_y = titulo_y - padding_titulo
+
+    bubble_titulo_img = Image.new('RGBA', (int(bubble_titulo_width), int(bubble_titulo_height)), (0, 0, 0, 0))
+    bubble_titulo_draw = ImageDraw.Draw(bubble_titulo_img)
+
+    bubble_titulo_draw.rounded_rectangle(
+        [0, 0, bubble_titulo_width, bubble_titulo_height],
+        radius=25,
+        fill=(255, 255, 255, 180),
+        outline=(100, 100, 100, 255),
+        width=3
+    )
+
+    canvas.paste(bubble_titulo_img, (int(bubble_titulo_x), int(bubble_titulo_y)), bubble_titulo_img)
+    draw.text((titulo_x, titulo_y), titulo_capitalizado, font=font_titulo_grande, fill='#2c2c2c')
+
+    logger.info(f"📖 Portada creada desde base64 con título: '{titulo[:30]}...'")
+    return canvas.convert('RGB')
+
 def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
     """Convierte una lista de imágenes PIL a un PDF multipágina."""
     if not imagenes:
         raise ValueError("No hay imágenes para convertir a PDF")
-    
+
     imagenes_rgb = [img.convert('RGB') if img.mode != 'RGB' else img for img in imagenes]
-    
+
     imagenes_rgb[0].save(
         output_path,
         save_all=True,
@@ -916,7 +992,7 @@ def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
         resolution=300.0,
         quality=95
     )
-    
+
     logger.info(f"✅ PDF creado con {len(imagenes)} páginas: {output_path}")
 
 # ============================================================================
@@ -927,19 +1003,33 @@ def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
 async def combinar_documentos(request: CombinarDocumentosRequest):
     """
     Combina múltiples imágenes PNG o PDFs en un solo PDF multipágina.
-    
+
     Body JSON:
     {
-        "rutas_archivos": ["/tmp/file1.png", "/tmp/file2.png", "/tmp/file3.png"]
+        "rutas_archivos": ["/tmp/file1.png", "/tmp/file2.png", "/tmp/file3.png"],
+        "portada": "base64_string_opcional"
     }
     """
-    logger.info(f"🔗 COMBINAR DOCUMENTOS: {len(request.rutas_archivos)} archivos")
-    
+    logger.info(f"🔗 COMBINAR DOCUMENTOS: {len(request.rutas_archivos)} archivos + portada: {bool(request.portada)}")
+
     try:
         if not request.rutas_archivos:
             raise HTTPException(status_code=400, detail="No se proporcionaron archivos")
-        
+
         imagenes_combinadas = []
+
+        # ============ AGREGAR PORTADA PRIMERO SI EXISTE ============
+        if request.portada:
+            try:
+                logger.info("📖 Procesando portada desde base64...")
+                portada_img = crear_portada_desde_base64(request.portada, "Mi Hermoso Cuento")
+                imagenes_combinadas.append(portada_img)
+                logger.info("✅ Portada agregada como primera página")
+            except Exception as e:
+                logger.error(f"❌ Error procesando portada: {e}")
+                # Continuar sin portada si hay error
+
+        # ============ PROCESAR PÁGINAS DEL CUENTO ============
         
         for i, ruta in enumerate(request.rutas_archivos):
             logger.info(f"📄 Procesando {i+1}/{len(request.rutas_archivos)}: {ruta}")
@@ -976,14 +1066,20 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
         
         imagenes_a_pdf(imagenes_combinadas, output_path)
         
-        logger.info(f"✅ PDF combinado: {len(imagenes_combinadas)} páginas")
-        
+        total_paginas = len(imagenes_combinadas)
+        paginas_cuento = len(request.rutas_archivos)
+        tiene_portada = 1 if request.portada else 0
+
+        logger.info(f"✅ PDF combinado: {total_paginas} páginas (portada: {tiene_portada}, cuento: {paginas_cuento})")
+
         return FileResponse(
             output_path,
             media_type="application/pdf",
             filename=filename,
             headers={
-                "X-Total-Pages": str(len(imagenes_combinadas)),
+                "X-Total-Pages": str(total_paginas),
+                "X-Cuento-Pages": str(paginas_cuento),
+                "X-Has-Portada": str(tiene_portada),
                 "X-Files-Combined": str(len(request.rutas_archivos))
             }
         )
@@ -1214,13 +1310,10 @@ async def crear_ficha(
             # Procesar todo el texto y dividirlo en líneas
             paragrafos = texto_cuento.strip().split('\n\n')
             todas_las_lineas = []
-            # Calcular líneas disponibles con nuevo interlineado - MÁS LÍNEAS
-            max_lines = int((texto_y_end - texto_y_start) / line_spacing) + 3  # +3 para FORZAR más líneas y llenar burbuja
+            # LÍMITE INFORMATIVO: La IA ya dividió el texto perfectamente por páginas
+            max_lines_recomendado = 7  # INFORMATIVO: 7 líneas recomendadas para mejor legibilidad
 
             for parrafo in paragrafos:
-                if len(todas_las_lineas) >= max_lines:
-                    break
-
                 palabras = parrafo.split()
                 linea_actual = []
 
@@ -1232,7 +1325,7 @@ async def crear_ficha(
                         bbox = draw.textbbox((0, 0), test_line, font=font_normal)
                         test_width = bbox[2] - bbox[0]
 
-                    if test_width <= max_width_texto * 0.95:  # Usar 95% del ancho para forzar más líneas
+                    if test_width <= max_width_texto * 0.95:  # Usar 95% del ancho
                         linea_actual.append(palabra)
                     else:
                         if linea_actual:
@@ -1243,15 +1336,17 @@ async def crear_ficha(
                 if linea_actual:
                     todas_las_lineas.append(' '.join(linea_actual))
 
-            # Limitar líneas si es necesario
-            lineas_antes = len(todas_las_lineas)
-            todas_las_lineas = todas_las_lineas[:max_lines]
-            lineas_despues = len(todas_las_lineas)
+            # NO RECORTAR - La IA ya dividió perfectamente el contenido
+            lineas_totales = len(todas_las_lineas)
 
             palabras_totales = len(' '.join(todas_las_lineas).split())
-            logger.info(f"📝 TEXTO: {palabras_totales} palabras → {lineas_despues} líneas (max: {max_lines})")
-            if lineas_antes > max_lines:
-                logger.warning(f"⚠️ TEXTO RECORTADO: {lineas_antes} líneas → {lineas_despues} líneas")
+            logger.info(f"📝 TEXTO IA: {palabras_totales} palabras → {lineas_totales} líneas (recomendado: {max_lines_recomendado})")
+
+            if palabras_totales > 90:
+                logger.info(f"💡 INFO: {palabras_totales} palabras (recomendado: máx 90 para 7 líneas)")
+
+            if lineas_totales > max_lines_recomendado:
+                logger.info(f"💡 INFO: {lineas_totales} líneas (recomendado: {max_lines_recomendado} líneas)")
 
             # ============ CREAR BURBUJA GRANDE ARMONIOSAMENTE ANCHA ============
             if todas_las_lineas:
@@ -1404,15 +1499,15 @@ async def crear_ficha(
 def root():
     return {
         "status": "ok",
-        "version": "9.0-COMBINAR",
-        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos"],
+        "version": "10.0-PORTADA",
+        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos_con_portada"],
         "endpoints": {
             "POST /crear-cuento-multipagina": "Crea cuentos multipágina automático (PDF)",
             "POST /crear-ficha": "Crea ficha de 1 página (PNG)",
-            "POST /combinar-documentos": "🆕 Combina múltiples PNGs/PDFs en un PDF"
+            "POST /combinar-documentos": "🆕 Combina páginas + portada opcional en PDF"
         }
     }
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "version": "9.0-COMBINAR"}
+    return {"status": "healthy", "version": "10.0-PORTADA"}
