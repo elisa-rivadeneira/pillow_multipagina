@@ -1138,6 +1138,7 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
 def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str = "Mi Cuento") -> Image.Image:
     """Crea una portada hermosa desde imagen PIL con título."""
     logger.info(f"🔍 DEBUG en crear_portada_con_titulo_desde_imagen: Título recibido: '{titulo}'")
+    logger.info(f"🔍 DEBUG: Tipo de título: {type(titulo)}, Longitud: {len(titulo) if titulo else 'None'}")
 
     # Dimensiones A4
     a4_width = 2480
@@ -1182,7 +1183,7 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
 
         # ============ FUENTE MÁS GRANDE Y ELEGANTE ============
         try:
-            font_titulo_epico = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 180)
+            font_titulo_epico = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 220)  # Más grande
         except:
             font_titulo_epico = font_titulo_grande
 
@@ -1194,9 +1195,26 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
         titulo_x = (a4_width - titulo_width) // 2
         titulo_y = a4_height - (a4_height * 0.25) - titulo_height // 2  # 25% desde abajo
 
+        logger.info(f"🔍 DEBUG: Posición del título - x: {titulo_x}, y: {titulo_y}, width: {titulo_width}, height: {titulo_height}")
+
+        # ============ FONDO NEGRO SEMI-TRANSPARENTE PARA CONTRASTE ============
+        padding = 40
+        fondo_x = titulo_x - padding
+        fondo_y = titulo_y - padding
+        fondo_w = titulo_width + (padding * 2)
+        fondo_h = titulo_height + (padding * 2)
+
+        # Crear overlay para el fondo
+        overlay = Image.new('RGBA', (a4_width, a4_height), (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay)
+        overlay_draw.rectangle([fondo_x, fondo_y, fondo_x + fondo_w, fondo_y + fondo_h],
+                              fill=(0, 0, 0, 120))  # Negro semi-transparente
+        canvas = Image.alpha_composite(canvas.convert('RGBA'), overlay).convert('RGB')
+        draw = ImageDraw.Draw(canvas)
+
         # ============ TEXTO DORADO CON EFECTOS ESPECTACULARES ============
-        shadow_offsets = [(-6, -6), (-4, -4), (-2, -2), (6, 6), (4, 4), (2, 2)]
-        shadow_color = '#B8860B'  # Oro oscuro para sombra
+        shadow_offsets = [(-8, -8), (-6, -6), (-4, -4), (-2, -2), (8, 8), (6, 6), (4, 4), (2, 2)]
+        shadow_color = '#4A4A4A'  # Sombra más oscura
 
         # ============ SOMBRAS MÚLTIPLES PARA PROFUNDIDAD ============
         for offset_x_s, offset_y_s in shadow_offsets:
@@ -1204,15 +1222,16 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
                      font=font_titulo_epico, fill=shadow_color)
 
         # ============ GRADIENTE DORADO CON MÚLTIPLES CAPAS ============
-        colores_dorados = ['#FFD700', '#FFA500', '#FFFF00']
+        colores_dorados = ['#B8860B', '#DAA520', '#FFD700', '#FFFF00']
         for i, color in enumerate(colores_dorados):
-            offset = i * 1
+            offset = i * 2
             draw.text((titulo_x + offset, titulo_y + offset), titulo_capitalizado, font=font_titulo_epico, fill=color)
 
-        # ============ BRILLO FINAL DORADO ============
-        draw.text((titulo_x, titulo_y), titulo_capitalizado, font=font_titulo_epico, fill='#FFFF99')  # Brillo final
+        # ============ BRILLO FINAL DORADO MUY VISIBLE ============
+        draw.text((titulo_x, titulo_y), titulo_capitalizado, font=font_titulo_epico, fill='#FFFFFF')  # Blanco brillante final
 
         logger.info(f"✨ Portada con título DORADO espectacular: '{titulo[:30]}...'")
+        logger.info(f"✅ DEBUG: Título renderizado exitosamente en posición ({titulo_x}, {titulo_y})")
     else:
         logger.info(f"❌ DEBUG: Título NO válido - titulo: '{titulo}', es None: {titulo is None}, es vacío: {not titulo if titulo is not None else 'N/A'}")
         logger.info(f"📖 Portada creada SIN título adicional")
