@@ -1139,36 +1139,33 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
 # ENDPOINT: CREAR PORTADA
 # ============================================================================
 
-class CrearPortadaRequest(BaseModel):
-    portada: str  # Base64 de la imagen de portada
-    titulo: str   # Título del cuento para la portada
-
 @app.post("/crear-portada")
-async def crear_portada(request: CrearPortadaRequest):
+async def crear_portada(
+    portada: str = Form(...),  # Base64 de la imagen de portada
+    titulo: str = Form(...)    # Título del cuento para la portada
+):
     """
     Crea una portada con título dorado desde imagen base64.
-    Body JSON:
-    {
-        "portada": "base64_string_de_imagen",
-        "titulo": "Mi Hermoso Cuento"
-    }
+    Form data:
+    - portada: base64_string_de_imagen
+    - titulo: Mi Hermoso Cuento
     """
-    logger.info(f"🎨 CREAR PORTADA: '{request.titulo[:30]}...'")
-    logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{request.titulo}'")
+    logger.info(f"🎨 CREAR PORTADA: '{titulo[:30]}...'")
+    logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{titulo}'")
 
     try:
-        if not request.portada:
+        if not portada:
             raise HTTPException(status_code=400, detail="Imagen de portada requerida")
 
-        if not request.titulo or not request.titulo.strip():
+        if not titulo or not titulo.strip():
             raise HTTPException(status_code=400, detail="Título requerido")
 
         # Crear la portada con título
-        portada_img = crear_portada_desde_base64(request.portada, request.titulo)
+        portada_img = crear_portada_desde_base64(portada, titulo)
 
         # Guardar como archivo temporal
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        titulo_sanitizado = sanitize_filename(request.titulo)
+        titulo_sanitizado = sanitize_filename(titulo)
         filename = f"Portada_{titulo_sanitizado}_{timestamp}.png"
         output_path = f"/tmp/{filename}"
 
@@ -1181,7 +1178,7 @@ async def crear_portada(request: CrearPortadaRequest):
             media_type="image/png",
             filename=filename,
             headers={
-                "X-Titulo": request.titulo,
+                "X-Titulo": titulo,
                 "X-Generated": str(timestamp)
             }
         )
