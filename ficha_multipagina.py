@@ -1136,6 +1136,63 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================
+# ENDPOINT: CREAR PORTADA
+# ============================================================================
+
+class CrearPortadaRequest(BaseModel):
+    portada: str  # Base64 de la imagen de portada
+    titulo: str   # Título del cuento para la portada
+
+@app.post("/crear-portada")
+async def crear_portada(request: CrearPortadaRequest):
+    """
+    Crea una portada con título dorado desde imagen base64.
+    Body JSON:
+    {
+        "portada": "base64_string_de_imagen",
+        "titulo": "Mi Hermoso Cuento"
+    }
+    """
+    logger.info(f"🎨 CREAR PORTADA: '{request.titulo[:30]}...'")
+    logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{request.titulo}'")
+
+    try:
+        if not request.portada:
+            raise HTTPException(status_code=400, detail="Imagen de portada requerida")
+
+        if not request.titulo or not request.titulo.strip():
+            raise HTTPException(status_code=400, detail="Título requerido")
+
+        # Crear la portada con título
+        portada_img = crear_portada_desde_base64(request.portada, request.titulo)
+
+        # Guardar como archivo temporal
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        titulo_sanitizado = sanitize_filename(request.titulo)
+        filename = f"Portada_{titulo_sanitizado}_{timestamp}.png"
+        output_path = f"/tmp/{filename}"
+
+        portada_img.save(output_path, "PNG", quality=95)
+
+        logger.info(f"✅ Portada creada: {filename}")
+
+        return FileResponse(
+            output_path,
+            media_type="image/png",
+            filename=filename,
+            headers={
+                "X-Titulo": request.titulo,
+                "X-Generated": str(timestamp)
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error creando portada: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
 # ENDPOINT: CREAR CUENTO MULTIPÁGINA
 # ============================================================================
 
