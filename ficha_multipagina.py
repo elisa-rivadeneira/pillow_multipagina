@@ -1273,44 +1273,41 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
 # ENDPOINT: CREAR PORTADA
 # ============================================================================
 
-class CrearPortadaRequest(BaseModel):
-    portada: str  # Base64 string de la imagen de portada
-    titulo: str   # Título del cuento para la portada
-
 @app.post("/crear-portada")
-async def crear_portada(request: CrearPortadaRequest):
+async def crear_portada(
+    portada: str = Form(...),  # Base64 string de la imagen de portada
+    titulo: str = Form(...)    # Título del cuento para la portada
+):
     """
     Crea una portada con título dorado desde base64.
-    JSON Body:
-    {
-        "portada": "base64_string_de_imagen",
-        "titulo": "Mi Hermoso Cuento"
-    }
+    Form data:
+    - portada: base64 string de imagen
+    - titulo: Mi Hermoso Cuento
     """
-    logger.info(f"🎨 CREAR PORTADA: '{request.titulo[:30]}...' con imagen base64")
-    logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{request.titulo}'")
+    logger.info(f"🎨 CREAR PORTADA: '{titulo[:30]}...' con imagen base64")
+    logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{titulo}'")
 
     try:
-        if not request.portada:
+        if not portada:
             raise HTTPException(status_code=400, detail="Imagen de portada requerida")
 
-        if not request.titulo or not request.titulo.strip():
+        if not titulo or not titulo.strip():
             raise HTTPException(status_code=400, detail="Título requerido")
 
         # Decodificar base64 y crear imagen
         import base64
-        portada_bytes = base64.b64decode(request.portada)
+        portada_bytes = base64.b64decode(portada)
         portada_img = Image.open(io.BytesIO(portada_bytes))
 
         if portada_img.mode != 'RGB':
             portada_img = portada_img.convert('RGB')
 
         # Crear la portada con título
-        portada_final = crear_portada_con_titulo_desde_imagen(portada_img, request.titulo)
+        portada_final = crear_portada_con_titulo_desde_imagen(portada_img, titulo)
 
         # Guardar como archivo temporal
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        titulo_sanitizado = sanitize_filename(request.titulo)
+        titulo_sanitizado = sanitize_filename(titulo)
         filename = f"Portada_{titulo_sanitizado}_{timestamp}.png"
         output_path = f"/tmp/{filename}"
 
@@ -1324,7 +1321,7 @@ async def crear_portada(request: CrearPortadaRequest):
             media_type="image/png",
             filename=filename,
             headers={
-                "X-Titulo": request.titulo,
+                "X-Titulo": titulo,
                 "X-Generated": str(timestamp)
             }
         )
@@ -1510,9 +1507,9 @@ async def crear_ficha(
             line_spacing = 95  # INTERLINEADO GRANDE para ocupar toda la burbuja (era 75)
 
             # NUEVO: Ancho de texto OPTIMIZADO para más palabras
-            margin_horizontal = a4_width * 0.05  # 5% margen cada lado (era 10%)
-            bubble_padding_text = 35  # PADDING REDUCIDO para más espacio de texto
-            max_width_texto = (a4_width * 0.9) - (bubble_padding_text * 2)  # 90% ancho total
+            margin_horizontal = a4_width * 0.03  # 3% margen cada lado (reducido de 5%)
+            bubble_padding_text = 30  # PADDING MÁS REDUCIDO para más espacio de texto
+            max_width_texto = (a4_width * 0.94) - (bubble_padding_text * 2)  # 94% ancho total
 
             # ============ POSICIONAMIENTO OPTIMIZADO PARA 7 LÍNEAS ============
             # Texto BAJADO para dar máximo protagonismo a la imagen del cuento
@@ -1588,9 +1585,9 @@ async def crear_ficha(
                 bubble_padding = 35  # PADDING OPTIMIZADO para más espacio de texto
                 bubble_radius = 35   # Esquinas más redondeadas estilo burbuja de diálogo
 
-                # ANCHO OPTIMIZADO: 90% del ancho de la página (10% márgenes total = 5% cada lado)
-                margin_horizontal_burbuja = a4_width * 0.05  # 5% margen cada lado
-                bubble_width_total = a4_width * 0.9  # 90% de ancho de hoja
+                # ANCHO OPTIMIZADO: 94% del ancho de la página (6% márgenes total = 3% cada lado)
+                margin_horizontal_burbuja = a4_width * 0.03  # 3% margen cada lado (reducido)
+                bubble_width_total = a4_width * 0.94  # 94% de ancho de hoja
 
                 # Altura basada en líneas de texto
                 bubble_height = (len(todas_las_lineas) * line_spacing) + (bubble_padding * 2)
