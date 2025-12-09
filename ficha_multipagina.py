@@ -22,7 +22,7 @@ app = FastAPI()
 class CombinarDocumentosRequest(BaseModel):
     rutas_archivos: List[str]
     portada: str = None  # Base64 de la imagen de portada (opcional)
-    titulo: str = "Mi Hermoso Cuento"  # Título del cuento para la portada
+    titulo: str = None   # Título del cuento para la portada
 
 # ============================================================================
 # FUNCIONES AUXILIARES
@@ -1060,7 +1060,8 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
             try:
                 logger.info("📖 Procesando portada desde base64...")
                 # Usar el título del request para la portada
-                portada_img = crear_portada_desde_base64(request.portada, request.titulo)
+                titulo_para_portada = request.titulo or ""  # Si no hay título, usar string vacío
+                portada_img = crear_portada_desde_base64(request.portada, titulo_para_portada)
                 imagenes_combinadas.append(portada_img)
                 logger.info("✅ Portada agregada como primera página")
             except Exception as e:
