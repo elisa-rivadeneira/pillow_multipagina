@@ -1271,6 +1271,7 @@ async def crear_portada(
             portada_img = portada_img.convert('RGB')
 
         # Crear la portada con título
+        # Crear la portada con título
         portada_final = crear_portada_con_titulo_desde_imagen(portada_img, titulo)
 
         # Guardar como archivo temporal
@@ -1279,7 +1280,8 @@ async def crear_portada(
         filename = f"Portada_{titulo_sanitizado}_{timestamp}.png"
         output_path = f"/tmp/{filename}"
 
-        portada_img.save(output_path, "PNG", quality=95)
+        # GUARDAR LA IMAGEN CORRECTA
+        portada_final.save(output_path, "PNG", quality=95)
 
         logger.info(f"✅ Portada creada: {filename}")
 
