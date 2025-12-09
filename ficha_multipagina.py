@@ -22,6 +22,7 @@ app = FastAPI()
 class CombinarDocumentosRequest(BaseModel):
     rutas_archivos: List[str]
     portada: str = None  # Base64 de la imagen de portada (opcional)
+    titulo: str = "Mi Hermoso Cuento"  # Título del cuento para la portada
 
 # ============================================================================
 # FUNCIONES AUXILIARES
@@ -945,37 +946,73 @@ def crear_portada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -
     except:
         font_titulo_grande = ImageFont.load_default()
 
-    # ============ TÍTULO EN LA PARTE SUPERIOR ============
-    titulo_capitalizado = to_title_case(titulo)
-    bbox_titulo = draw.textbbox((0, 0), titulo_capitalizado, font=font_titulo_grande)
-    titulo_width = bbox_titulo[2] - bbox_titulo[0]
-    titulo_height = bbox_titulo[3] - bbox_titulo[1]
+    # ============ TÍTULO DORADO ESPECTACULAR EN LA PARTE INFERIOR ============
+    if titulo and titulo.strip():
+        titulo_capitalizado = to_title_case(titulo)
 
-    titulo_x = (a4_width - titulo_width) // 2
-    titulo_y = 300
+        # ============ FUENTE MÁS GRANDE Y ELEGANTE ============
+        try:
+            font_titulo_epico = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 180)
+        except:
+            font_titulo_epico = font_titulo_grande
 
-    # ============ BURBUJA PARA TÍTULO ============
-    padding_titulo = 50
-    bubble_titulo_width = titulo_width + (padding_titulo * 2)
-    bubble_titulo_height = titulo_height + (padding_titulo * 2)
-    bubble_titulo_x = titulo_x - padding_titulo
-    bubble_titulo_y = titulo_y - padding_titulo
+        bbox_titulo = draw.textbbox((0, 0), titulo_capitalizado, font=font_titulo_epico)
+        titulo_width = bbox_titulo[2] - bbox_titulo[0]
+        titulo_height = bbox_titulo[3] - bbox_titulo[1]
 
-    bubble_titulo_img = Image.new('RGBA', (int(bubble_titulo_width), int(bubble_titulo_height)), (0, 0, 0, 0))
-    bubble_titulo_draw = ImageDraw.Draw(bubble_titulo_img)
+        # ============ POSICIÓN: 25% DESDE ABAJO ============
+        titulo_x = (a4_width - titulo_width) // 2
+        titulo_y = a4_height - (a4_height * 0.25) - titulo_height // 2  # 25% desde abajo
 
-    bubble_titulo_draw.rounded_rectangle(
-        [0, 0, bubble_titulo_width, bubble_titulo_height],
-        radius=25,
-        fill=(255, 255, 255, 180),
-        outline=(100, 100, 100, 255),
-        width=3
-    )
+        # ============ BURBUJA ELEGANTE MÁS GRANDE ============
+        padding_titulo = 80  # Padding más generoso
+        bubble_titulo_width = titulo_width + (padding_titulo * 2)
+        bubble_titulo_height = titulo_height + (padding_titulo * 2)
+        bubble_titulo_x = titulo_x - padding_titulo
+        bubble_titulo_y = titulo_y - padding_titulo
 
-    canvas.paste(bubble_titulo_img, (int(bubble_titulo_x), int(bubble_titulo_y)), bubble_titulo_img)
-    draw.text((titulo_x, titulo_y), titulo_capitalizado, font=font_titulo_grande, fill='#2c2c2c')
+        # ============ FONDO NEGRO SEMITRANSPARENTE ELEGANTE ============
+        bubble_titulo_img = Image.new('RGBA', (int(bubble_titulo_width), int(bubble_titulo_height)), (0, 0, 0, 0))
+        bubble_titulo_draw = ImageDraw.Draw(bubble_titulo_img)
 
-    logger.info(f"📖 Portada creada desde base64 con título: '{titulo[:30]}...'")
+        bubble_titulo_draw.rounded_rectangle(
+            [0, 0, bubble_titulo_width, bubble_titulo_height],
+            radius=40,  # Radio más grande
+            fill=(0, 0, 0, 160),  # Fondo negro elegante con transparencia
+            outline=(50, 50, 50, 255),  # Borde más oscuro
+            width=4  # Borde más grueso
+        )
+
+        canvas.paste(bubble_titulo_img, (int(bubble_titulo_x), int(bubble_titulo_y)), bubble_titulo_img)
+
+        # ============ TEXTO DORADO CON EFECTOS ESPECTACULARES ============
+        # Sombra dorada profunda (múltiples capas)
+        shadow_offsets = [(-6, -6), (-4, -4), (-2, -2), (6, 6), (4, 4), (2, 2)]
+        shadow_color = '#B8860B'  # Oro oscuro para sombra
+
+        for dx, dy in shadow_offsets:
+            draw.text((titulo_x + dx, titulo_y + dy), titulo_capitalizado, font=font_titulo_epico, fill=shadow_color)
+
+        # ============ TEXTO PRINCIPAL DORADO BRILLANTE ============
+        # Degradado dorado simulado con múltiples tonos
+        colores_dorados = [
+            '#FFD700',  # Oro brillante principal
+            '#FFA500',  # Naranja dorado
+            '#FFFF00',  # Amarillo brillante
+        ]
+
+        # Aplicar múltiples capas de colores dorados
+        for i, color in enumerate(colores_dorados):
+            offset = i * 1
+            draw.text((titulo_x + offset, titulo_y + offset), titulo_capitalizado, font=font_titulo_epico, fill=color)
+
+        # ============ BRILLO FINAL DORADO ============
+        draw.text((titulo_x, titulo_y), titulo_capitalizado, font=font_titulo_epico, fill='#FFFF99')  # Brillo final
+
+        logger.info(f"✨ Portada con título DORADO espectacular: '{titulo[:30]}...'")
+    else:
+        logger.info(f"📖 Portada creada desde base64 SIN título adicional")
+
     return canvas.convert('RGB')
 
 def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
@@ -1022,7 +1059,8 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
         if request.portada:
             try:
                 logger.info("📖 Procesando portada desde base64...")
-                portada_img = crear_portada_desde_base64(request.portada, "Mi Hermoso Cuento")
+                # Usar el título del request para la portada
+                portada_img = crear_portada_desde_base64(request.portada, request.titulo)
                 imagenes_combinadas.append(portada_img)
                 logger.info("✅ Portada agregada como primera página")
             except Exception as e:
