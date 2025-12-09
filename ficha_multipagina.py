@@ -1177,7 +1177,7 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
         return canvas
 
     # ==================== AUTO-SIZE + MULTILINE ====================
-    max_width = int(a4_width * 0.85)
+    max_width = int(a4_width * 0.92)  # Aumentado de 85% a 92% para más palabras
     max_lines = 3
 
     # ✔ LETRA A LA MITAD
@@ -1220,10 +1220,10 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
     titulo_y = int(a4_height - a4_height * 0.25 - total_height / 2)
 
     # ==================== FONDO NEGRO ====================
-    fondo_x1 = int(a4_width * 0.05)
-    fondo_x2 = int(a4_width * 0.95)
-    fondo_y1 = titulo_y - 40
-    fondo_y2 = titulo_y + total_height + 40
+    fondo_x1 = int(a4_width * 0.04)  # Reducido de 5% a 4%
+    fondo_x2 = int(a4_width * 0.96)  # Aumentado de 95% a 96%
+    fondo_y1 = titulo_y - 30         # Reducido de 40 a 30
+    fondo_y2 = titulo_y + total_height + 30  # Reducido de 40 a 30
 
     overlay = Image.new('RGBA', (a4_width, a4_height), (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
@@ -1273,41 +1273,44 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
 # ENDPOINT: CREAR PORTADA
 # ============================================================================
 
+class CrearPortadaRequest(BaseModel):
+    portada: str  # Base64 string de la imagen de portada
+    titulo: str   # Título del cuento para la portada
+
 @app.post("/crear-portada")
-async def crear_portada(
-    portada: UploadFile = File(...),  # Archivo de imagen de portada
-    titulo: str = Form(...)           # Título del cuento para la portada
-):
+async def crear_portada(request: CrearPortadaRequest):
     """
-    Crea una portada con título dorado desde archivo de imagen.
-    Form data:
-    - portada: archivo de imagen (PNG, JPG, etc.)
-    - titulo: Mi Hermoso Cuento
+    Crea una portada con título dorado desde base64.
+    JSON Body:
+    {
+        "portada": "base64_string_de_imagen",
+        "titulo": "Mi Hermoso Cuento"
+    }
     """
-    logger.info(f"🎨 CREAR PORTADA: '{titulo[:30]}...' con imagen: {portada.filename}")
-    logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{titulo}'")
+    logger.info(f"🎨 CREAR PORTADA: '{request.titulo[:30]}...' con imagen base64")
+    logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{request.titulo}'")
 
     try:
-        if not portada:
+        if not request.portada:
             raise HTTPException(status_code=400, detail="Imagen de portada requerida")
 
-        if not titulo or not titulo.strip():
+        if not request.titulo or not request.titulo.strip():
             raise HTTPException(status_code=400, detail="Título requerido")
 
-        # Leer el archivo de imagen
-        portada_bytes = await portada.read()
+        # Decodificar base64 y crear imagen
+        import base64
+        portada_bytes = base64.b64decode(request.portada)
         portada_img = Image.open(io.BytesIO(portada_bytes))
 
         if portada_img.mode != 'RGB':
             portada_img = portada_img.convert('RGB')
 
         # Crear la portada con título
-        # Crear la portada con título
-        portada_final = crear_portada_con_titulo_desde_imagen(portada_img, titulo)
+        portada_final = crear_portada_con_titulo_desde_imagen(portada_img, request.titulo)
 
         # Guardar como archivo temporal
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        titulo_sanitizado = sanitize_filename(titulo)
+        titulo_sanitizado = sanitize_filename(request.titulo)
         filename = f"Portada_{titulo_sanitizado}_{timestamp}.png"
         output_path = f"/tmp/{filename}"
 
@@ -1321,7 +1324,7 @@ async def crear_portada(
             media_type="image/png",
             filename=filename,
             headers={
-                "X-Titulo": titulo,
+                "X-Titulo": request.titulo,
                 "X-Generated": str(timestamp)
             }
         )
