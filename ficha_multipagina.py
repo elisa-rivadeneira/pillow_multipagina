@@ -21,7 +21,7 @@ app = FastAPI()
 
 class CombinarDocumentosRequest(BaseModel):
     rutas_archivos: List[str]
-    portada_base64: str = None  # Base64 de la imagen de portada (opcional)
+    portada: str = None  # Base64 de la imagen de portada (opcional)
     titulo: str = None   # Título del cuento para la portada
 
 # ============================================================================
@@ -1015,6 +1015,7 @@ def crear_portada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -
 
         logger.info(f"✨ Portada con título DORADO espectacular: '{titulo[:30]}...'")
     else:
+        logger.info(f"❌ DEBUG: Título NO válido - titulo: '{titulo}', es None: {titulo is None}, es vacío: {not titulo if titulo is not None else 'N/A'}")
         logger.info(f"📖 Portada creada desde base64 SIN título adicional")
 
     return canvas.convert('RGB')
