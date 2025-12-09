@@ -21,7 +21,7 @@ app = FastAPI()
 
 class CombinarDocumentosRequest(BaseModel):
     rutas_archivos: List[str]
-    portada: str = None  # Base64 de la imagen de portada (opcional)
+    portada_base64: str = None  # Base64 de la imagen de portada (opcional)
     titulo: str = None   # Título del cuento para la portada
 
 # ============================================================================
@@ -906,6 +906,7 @@ def crear_pagina_cuento(
 
 def crear_portada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -> Image.Image:
     """Crea una portada hermosa desde imagen base64."""
+    logger.info(f"🔍 DEBUG en crear_portada_desde_base64: Título recibido: '{titulo}'")
     import base64
 
     # Decodificar base64
@@ -947,8 +948,11 @@ def crear_portada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -
         font_titulo_grande = ImageFont.load_default()
 
     # ============ TÍTULO DORADO ESPECTACULAR EN LA PARTE INFERIOR ============
+    logger.info(f"🔍 DEBUG: Evaluando título - titulo: '{titulo}', titulo.strip(): '{titulo.strip() if titulo else None}'")
     if titulo and titulo.strip():
+        logger.info(f"✅ DEBUG: Título válido, procediendo a renderizar...")
         titulo_capitalizado = to_title_case(titulo)
+        logger.info(f"🔍 DEBUG: Título capitalizado: '{titulo_capitalizado}'")
 
         # ============ FUENTE MÁS GRANDE Y ELEGANTE ============
         try:
@@ -1048,6 +1052,7 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
     }
     """
     logger.info(f"🔗 COMBINAR DOCUMENTOS: {len(request.rutas_archivos)} archivos + portada: {bool(request.portada)}")
+    logger.info(f"🔍 DEBUG: Título recibido: '{request.titulo}'")
 
     try:
         if not request.rutas_archivos:
