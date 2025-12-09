@@ -1134,7 +1134,6 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
         import traceback
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-
 def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str = "Mi Cuento") -> Image.Image:
     """Crea una portada hermosa desde imagen PIL con título multilínea y auto-size."""
 
@@ -1180,9 +1179,11 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
     # ==================== AUTO-SIZE + MULTILINE ====================
     max_width = int(a4_width * 0.85)
     max_lines = 3
-    font_size = 220
 
-    while font_size > 60:
+    # ✔ LETRA A LA MITAD
+    font_size = 110   # antes 220 → ahora la mitad
+
+    while font_size > 30:
         try:
             font_titulo = ImageFont.truetype(base_font, font_size)
         except:
@@ -1206,7 +1207,7 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
         if len(lines) <= max_lines:
             break
 
-        font_size -= 8
+        font_size -= 5
 
     # ==================== CALCULAR ALTURA TOTAL ====================
     line_heights = [
@@ -1233,29 +1234,39 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
     # ==================== DIBUJAR TEXTO LÍNEA POR LÍNEA ====================
     current_y = titulo_y
 
+    # Colores dorados fuertes
+    dorado_oscuro = "#8B7500"
+    dorado_medio = "#DAA520"
+    dorado_brillante = "#FFD700"
+    dorado_luz = "#FFF4B0"
+
     for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font_titulo)
         w_line = bbox[2] - bbox[0]
         h_line = bbox[3] - bbox[1]
         x_line = (a4_width - w_line) // 2
 
-        # Sombra múltiple
-        for dx, dy in [(-4,-4), (-2,-2), (2,2), (4,4)]:
-            draw.text((x_line + dx, current_y + dy), line, font=font_titulo, fill="#444444")
+        # --- ✔ Borde oscuro para contraste ---
+        for dx, dy in [(-3, -3), (3, -3), (-3, 3), (3, 3)]:
+            draw.text((x_line + dx, current_y + dy), line, font=font_titulo, fill="#2A1E00")
 
-        # Dorado gradiente
-        grad = ['#B8860B', '#DAA520', '#FFD700', '#FFFFAA']
-        for i, c in enumerate(grad):
-            draw.text((x_line + i, current_y + i), line, font=font_titulo, fill=c)
+        # --- ✔ Sombra suave ---
+        draw.text((x_line + 2, current_y + 2), line, font=font_titulo, fill="#1A1200")
 
-        # Blanco brillante
-        draw.text((x_line, current_y), line, font=font_titulo, fill="#FFFFFF")
+        # --- ✔ Gradiente dorado real ---
+        gradiente = [dorado_oscuro, dorado_medio, dorado_brillante, dorado_luz]
+        for i, color in enumerate(gradiente):
+            draw.text((x_line, current_y - i), line, font=font_titulo, fill=color)
+
+        # --- Eliminado: blanco brillante, porque hacía que el color parezca blanco ---
+        # draw.text((x_line, current_y), line, font=font_titulo, fill="#FFFFFF")
 
         current_y += h_line + 18
 
     logger.info(f"✨ Portada generada con {len(lines)} líneas y tamaño de fuente {font_size}")
 
     return canvas.convert("RGB")
+
 
 
 # ============================================================================
