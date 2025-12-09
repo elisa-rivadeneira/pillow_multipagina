@@ -1136,15 +1136,15 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str = "Mi Cuento") -> Image.Image:
-    """Crea una portada hermosa desde imagen PIL con título."""
+    """Crea una portada hermosa desde imagen PIL con título multilínea y auto-size."""
+
     logger.info(f"🔍 DEBUG en crear_portada_con_titulo_desde_imagen: Título recibido: '{titulo}'")
-    logger.info(f"🔍 DEBUG: Tipo de título: {type(titulo)}, Longitud: {len(titulo) if titulo else 'None'}")
 
     # Dimensiones A4
     a4_width = 2480
     a4_height = 3508
 
-    # ============ CREAR FONDO DE PORTADA A4 COMPLETO ============
+    # ============ AJUSTAR IMAGEN A TAMAÑO A4 ============
     portada_aspect = portada_img.width / portada_img.height
     page_aspect = a4_width / a4_height
 
@@ -1157,86 +1157,106 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
 
     portada_img_resized = portada_img.resize((new_width, new_height), Image.LANCZOS)
 
-    # Crear canvas A4 y centrar la imagen
     canvas = Image.new('RGB', (a4_width, a4_height), (255, 255, 255))
-
-    # Posición para centrar la imagen redimensionada
     offset_x = (a4_width - new_width) // 2
     offset_y = (a4_height - new_height) // 2
-
     canvas.paste(portada_img_resized, (offset_x, offset_y))
 
     draw = ImageDraw.Draw(canvas)
 
-    # ============ FUENTE PARA EL TÍTULO ============
+    # ====================== FUENTES ======================
     try:
-        font_titulo_grande = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 140)
+        base_font = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+        font_default = ImageFont.truetype(base_font, 140)
     except:
-        font_titulo_grande = ImageFont.load_default()
+        font_default = ImageFont.load_default()
 
-    # ============ TÍTULO DORADO ESPECTACULAR EN LA PARTE INFERIOR ============
-    logger.info(f"🔍 DEBUG: Evaluando título - titulo: '{titulo}', titulo.strip(): '{titulo.strip() if titulo else None}'")
-    if titulo and titulo.strip():
-        logger.info(f"✅ DEBUG: Título válido, procediendo a renderizar...")
-        titulo_capitalizado = to_title_case(titulo)
-        logger.info(f"🔍 DEBUG: Título capitalizado: '{titulo_capitalizado}'")
+    titulo_capitalizado = to_title_case(titulo)
 
-        # ============ FUENTE MÁS GRANDE Y ELEGANTE ============
+    if not titulo or not titulo.strip():
+        logger.info("❌ No hay título válido. Devolviendo portada sin texto.")
+        return canvas
+
+    # ==================== AUTO-SIZE + MULTILINE ====================
+    max_width = int(a4_width * 0.85)
+    max_lines = 3
+    font_size = 220
+
+    while font_size > 60:
         try:
-            font_titulo_epico = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 220)  # Más grande
+            font_titulo = ImageFont.truetype(base_font, font_size)
         except:
-            font_titulo_epico = font_titulo_grande
+            font_titulo = font_default
 
-        bbox_titulo = draw.textbbox((0, 0), titulo_capitalizado, font=font_titulo_epico)
-        titulo_width = bbox_titulo[2] - bbox_titulo[0]
-        titulo_height = bbox_titulo[3] - bbox_titulo[1]
+        words = titulo_capitalizado.split()
+        lines = []
+        actual = ""
 
-        # ============ POSICIÓN: 25% DESDE ABAJO ============
-        titulo_x = (a4_width - titulo_width) // 2
-        titulo_y = a4_height - (a4_height * 0.25) - titulo_height // 2  # 25% desde abajo
+        for w in words:
+            prueba = (actual + " " + w).strip()
+            if draw.textlength(prueba, font=font_titulo) <= max_width:
+                actual = prueba
+            else:
+                lines.append(actual)
+                actual = w
 
-        logger.info(f"🔍 DEBUG: Posición del título - x: {titulo_x}, y: {titulo_y}, width: {titulo_width}, height: {titulo_height}")
+        if actual:
+            lines.append(actual)
 
-        # ============ FONDO NEGRO SEMI-TRANSPARENTE PARA CONTRASTE ============
-        padding = 40
-        fondo_x = titulo_x - padding
-        fondo_y = titulo_y - padding
-        fondo_w = titulo_width + (padding * 2)
-        fondo_h = titulo_height + (padding * 2)
+        if len(lines) <= max_lines:
+            break
 
-        # Crear overlay para el fondo
-        overlay = Image.new('RGBA', (a4_width, a4_height), (0, 0, 0, 0))
-        overlay_draw = ImageDraw.Draw(overlay)
-        overlay_draw.rectangle([fondo_x, fondo_y, fondo_x + fondo_w, fondo_y + fondo_h],
-                              fill=(0, 0, 0, 120))  # Negro semi-transparente
-        canvas = Image.alpha_composite(canvas.convert('RGBA'), overlay).convert('RGB')
-        draw = ImageDraw.Draw(canvas)
+        font_size -= 8
 
-        # ============ TEXTO DORADO CON EFECTOS ESPECTACULARES ============
-        shadow_offsets = [(-8, -8), (-6, -6), (-4, -4), (-2, -2), (8, 8), (6, 6), (4, 4), (2, 2)]
-        shadow_color = '#4A4A4A'  # Sombra más oscura
+    # ==================== CALCULAR ALTURA TOTAL ====================
+    line_heights = [
+        draw.textbbox((0, 0), line, font=font_titulo)[3] -
+        draw.textbbox((0, 0), line, font=font_titulo)[1]
+        for line in lines
+    ]
 
-        # ============ SOMBRAS MÚLTIPLES PARA PROFUNDIDAD ============
-        for offset_x_s, offset_y_s in shadow_offsets:
-            draw.text((titulo_x + offset_x_s, titulo_y + offset_y_s), titulo_capitalizado,
-                     font=font_titulo_epico, fill=shadow_color)
+    total_height = sum(line_heights) + (len(lines) - 1) * 18
+    titulo_y = int(a4_height - a4_height * 0.25 - total_height / 2)
 
-        # ============ GRADIENTE DORADO CON MÚLTIPLES CAPAS ============
-        colores_dorados = ['#B8860B', '#DAA520', '#FFD700', '#FFFF00']
-        for i, color in enumerate(colores_dorados):
-            offset = i * 2
-            draw.text((titulo_x + offset, titulo_y + offset), titulo_capitalizado, font=font_titulo_epico, fill=color)
+    # ==================== FONDO NEGRO ====================
+    fondo_x1 = int(a4_width * 0.05)
+    fondo_x2 = int(a4_width * 0.95)
+    fondo_y1 = titulo_y - 40
+    fondo_y2 = titulo_y + total_height + 40
 
-        # ============ BRILLO FINAL DORADO MUY VISIBLE ============
-        draw.text((titulo_x, titulo_y), titulo_capitalizado, font=font_titulo_epico, fill='#FFFFFF')  # Blanco brillante final
+    overlay = Image.new('RGBA', (a4_width, a4_height), (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    overlay_draw.rectangle([fondo_x1, fondo_y1, fondo_x2, fondo_y2], fill=(0, 0, 0, 130))
+    canvas = Image.alpha_composite(canvas.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(canvas)
 
-        logger.info(f"✨ Portada con título DORADO espectacular: '{titulo[:30]}...'")
-        logger.info(f"✅ DEBUG: Título renderizado exitosamente en posición ({titulo_x}, {titulo_y})")
-    else:
-        logger.info(f"❌ DEBUG: Título NO válido - titulo: '{titulo}', es None: {titulo is None}, es vacío: {not titulo if titulo is not None else 'N/A'}")
-        logger.info(f"📖 Portada creada SIN título adicional")
+    # ==================== DIBUJAR TEXTO LÍNEA POR LÍNEA ====================
+    current_y = titulo_y
 
-    return canvas.convert('RGB')
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font_titulo)
+        w_line = bbox[2] - bbox[0]
+        h_line = bbox[3] - bbox[1]
+        x_line = (a4_width - w_line) // 2
+
+        # Sombra múltiple
+        for dx, dy in [(-4,-4), (-2,-2), (2,2), (4,4)]:
+            draw.text((x_line + dx, current_y + dy), line, font=font_titulo, fill="#444444")
+
+        # Dorado gradiente
+        grad = ['#B8860B', '#DAA520', '#FFD700', '#FFFFAA']
+        for i, c in enumerate(grad):
+            draw.text((x_line + i, current_y + i), line, font=font_titulo, fill=c)
+
+        # Blanco brillante
+        draw.text((x_line, current_y), line, font=font_titulo, fill="#FFFFFF")
+
+        current_y += h_line + 18
+
+    logger.info(f"✨ Portada generada con {len(lines)} líneas y tamaño de fuente {font_size}")
+
+    return canvas.convert("RGB")
+
 
 # ============================================================================
 # ENDPOINT: CREAR PORTADA
