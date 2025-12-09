@@ -1275,16 +1275,16 @@ def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str 
 
 @app.post("/crear-portada")
 async def crear_portada(
-    portada: str = Form(...),  # Base64 string de la imagen de portada
-    titulo: str = Form(...)    # Título del cuento para la portada
+    portada: UploadFile = File(...),  # Archivo binario de imagen (n8n Binary File)
+    titulo: str = Form(...)           # Título del cuento para la portada
 ):
     """
-    Crea una portada con título dorado desde base64.
+    Crea una portada con título dorado desde archivo binario.
     Form data:
-    - portada: base64 string de imagen
+    - portada: archivo binario (n8n Binary File)
     - titulo: Mi Hermoso Cuento
     """
-    logger.info(f"🎨 CREAR PORTADA: '{titulo[:30]}...' con imagen base64")
+    logger.info(f"🎨 CREAR PORTADA: '{titulo[:30]}...' con archivo: {portada.filename}")
     logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{titulo}'")
 
     try:
@@ -1294,9 +1294,8 @@ async def crear_portada(
         if not titulo or not titulo.strip():
             raise HTTPException(status_code=400, detail="Título requerido")
 
-        # Decodificar base64 y crear imagen
-        import base64
-        portada_bytes = base64.b64decode(portada)
+        # Leer archivo binario y crear imagen
+        portada_bytes = await portada.read()
         portada_img = Image.open(io.BytesIO(portada_bytes))
 
         if portada_img.mode != 'RGB':
