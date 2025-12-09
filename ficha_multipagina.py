@@ -1507,7 +1507,7 @@ async def crear_ficha(
 
             # NUEVO: Ancho de texto OPTIMIZADO para más palabras
             margin_horizontal = a4_width * 0.03  # 3% margen cada lado (reducido de 5%)
-            bubble_padding_text = 30  # PADDING MÁS REDUCIDO para más espacio de texto
+            bubble_padding_text = 25  # PADDING MÍNIMO para máximo espacio de texto
             max_width_texto = (a4_width * 0.94) - (bubble_padding_text * 2)  # 94% ancho total
 
             # ============ POSICIONAMIENTO OPTIMIZADO PARA 7 LÍNEAS ============
@@ -1555,7 +1555,7 @@ async def crear_ficha(
                         bbox = draw.textbbox((0, 0), test_line, font=font_normal)
                         test_width = bbox[2] - bbox[0]
 
-                    if test_width <= max_width_texto * 0.95:  # Usar 95% del ancho
+                    if test_width <= max_width_texto * 0.98:  # Usar 98% del ancho para menos líneas
                         linea_actual.append(palabra)
                     else:
                         if linea_actual:
@@ -1581,7 +1581,7 @@ async def crear_ficha(
             # ============ CREAR BURBUJA GRANDE ARMONIOSAMENTE ANCHA ============
             if todas_las_lineas:
                 # Calcular dimensiones de la burbuja - ANCHO OPTIMIZADO 90% DE LA HOJA
-                bubble_padding = 35  # PADDING OPTIMIZADO para más espacio de texto
+                bubble_padding = 25  # PADDING MÍNIMO para máximo espacio de texto
                 bubble_radius = 35   # Esquinas más redondeadas estilo burbuja de diálogo
 
                 # ANCHO OPTIMIZADO: 94% del ancho de la página (6% márgenes total = 3% cada lado)
