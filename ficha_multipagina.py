@@ -1135,22 +1135,106 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str = "Mi Cuento") -> Image.Image:
+    """Crea una portada hermosa desde imagen PIL con título."""
+    logger.info(f"🔍 DEBUG en crear_portada_con_titulo_desde_imagen: Título recibido: '{titulo}'")
+
+    # Dimensiones A4
+    a4_width = 2480
+    a4_height = 3508
+
+    # ============ CREAR FONDO DE PORTADA A4 COMPLETO ============
+    portada_aspect = portada_img.width / portada_img.height
+    page_aspect = a4_width / a4_height
+
+    if portada_aspect < page_aspect:
+        new_width = a4_width
+        new_height = int(a4_width / portada_aspect)
+    else:
+        new_height = a4_height
+        new_width = int(a4_height * portada_aspect)
+
+    portada_img_resized = portada_img.resize((new_width, new_height), Image.LANCZOS)
+
+    # Crear canvas A4 y centrar la imagen
+    canvas = Image.new('RGB', (a4_width, a4_height), (255, 255, 255))
+
+    # Posición para centrar la imagen redimensionada
+    offset_x = (a4_width - new_width) // 2
+    offset_y = (a4_height - new_height) // 2
+
+    canvas.paste(portada_img_resized, (offset_x, offset_y))
+
+    draw = ImageDraw.Draw(canvas)
+
+    # ============ FUENTE PARA EL TÍTULO ============
+    try:
+        font_titulo_grande = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 140)
+    except:
+        font_titulo_grande = ImageFont.load_default()
+
+    # ============ TÍTULO DORADO ESPECTACULAR EN LA PARTE INFERIOR ============
+    logger.info(f"🔍 DEBUG: Evaluando título - titulo: '{titulo}', titulo.strip(): '{titulo.strip() if titulo else None}'")
+    if titulo and titulo.strip():
+        logger.info(f"✅ DEBUG: Título válido, procediendo a renderizar...")
+        titulo_capitalizado = to_title_case(titulo)
+        logger.info(f"🔍 DEBUG: Título capitalizado: '{titulo_capitalizado}'")
+
+        # ============ FUENTE MÁS GRANDE Y ELEGANTE ============
+        try:
+            font_titulo_epico = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 180)
+        except:
+            font_titulo_epico = font_titulo_grande
+
+        bbox_titulo = draw.textbbox((0, 0), titulo_capitalizado, font=font_titulo_epico)
+        titulo_width = bbox_titulo[2] - bbox_titulo[0]
+        titulo_height = bbox_titulo[3] - bbox_titulo[1]
+
+        # ============ POSICIÓN: 25% DESDE ABAJO ============
+        titulo_x = (a4_width - titulo_width) // 2
+        titulo_y = a4_height - (a4_height * 0.25) - titulo_height // 2  # 25% desde abajo
+
+        # ============ TEXTO DORADO CON EFECTOS ESPECTACULARES ============
+        shadow_offsets = [(-6, -6), (-4, -4), (-2, -2), (6, 6), (4, 4), (2, 2)]
+        shadow_color = '#B8860B'  # Oro oscuro para sombra
+
+        # ============ SOMBRAS MÚLTIPLES PARA PROFUNDIDAD ============
+        for offset_x_s, offset_y_s in shadow_offsets:
+            draw.text((titulo_x + offset_x_s, titulo_y + offset_y_s), titulo_capitalizado,
+                     font=font_titulo_epico, fill=shadow_color)
+
+        # ============ GRADIENTE DORADO CON MÚLTIPLES CAPAS ============
+        colores_dorados = ['#FFD700', '#FFA500', '#FFFF00']
+        for i, color in enumerate(colores_dorados):
+            offset = i * 1
+            draw.text((titulo_x + offset, titulo_y + offset), titulo_capitalizado, font=font_titulo_epico, fill=color)
+
+        # ============ BRILLO FINAL DORADO ============
+        draw.text((titulo_x, titulo_y), titulo_capitalizado, font=font_titulo_epico, fill='#FFFF99')  # Brillo final
+
+        logger.info(f"✨ Portada con título DORADO espectacular: '{titulo[:30]}...'")
+    else:
+        logger.info(f"❌ DEBUG: Título NO válido - titulo: '{titulo}', es None: {titulo is None}, es vacío: {not titulo if titulo is not None else 'N/A'}")
+        logger.info(f"📖 Portada creada SIN título adicional")
+
+    return canvas.convert('RGB')
+
 # ============================================================================
 # ENDPOINT: CREAR PORTADA
 # ============================================================================
 
 @app.post("/crear-portada")
 async def crear_portada(
-    portada: str = Form(...),  # Base64 de la imagen de portada
-    titulo: str = Form(...)    # Título del cuento para la portada
+    portada: UploadFile = File(...),  # Archivo de imagen de portada
+    titulo: str = Form(...)           # Título del cuento para la portada
 ):
     """
-    Crea una portada con título dorado desde imagen base64.
+    Crea una portada con título dorado desde archivo de imagen.
     Form data:
-    - portada: base64_string_de_imagen
+    - portada: archivo de imagen (PNG, JPG, etc.)
     - titulo: Mi Hermoso Cuento
     """
-    logger.info(f"🎨 CREAR PORTADA: '{titulo[:30]}...'")
+    logger.info(f"🎨 CREAR PORTADA: '{titulo[:30]}...' con imagen: {portada.filename}")
     logger.info(f"🔍 DEBUG: Título recibido en crear-portada: '{titulo}'")
 
     try:
@@ -1160,8 +1244,15 @@ async def crear_portada(
         if not titulo or not titulo.strip():
             raise HTTPException(status_code=400, detail="Título requerido")
 
+        # Leer el archivo de imagen
+        portada_bytes = await portada.read()
+        portada_img = Image.open(io.BytesIO(portada_bytes))
+
+        if portada_img.mode != 'RGB':
+            portada_img = portada_img.convert('RGB')
+
         # Crear la portada con título
-        portada_img = crear_portada_desde_base64(portada, titulo)
+        portada_final = crear_portada_con_titulo_desde_imagen(portada_img, titulo)
 
         # Guardar como archivo temporal
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
