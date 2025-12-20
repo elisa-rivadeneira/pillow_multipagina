@@ -1844,64 +1844,87 @@ def root():
 
 @app.post("/crear-ficha-cuadrada")
 async def crear_ficha_cuadrada(
+    imagen_fondo: UploadFile = File(...),
     texto: str = Form(...),
     tamano: int = Form(default=1200),
     color_fondo: str = Form(default="#FFFFFF"),
     color_texto: str = Form(default="#2c2c2c")
 ):
     """
-    Crea una ficha cuadrada con solo texto para Amazon KDP.
+    Crea DOS fichas cuadradas: una con imagen (izquierda) y otra con texto (derecha) para Amazon KDP.
 
     Form data:
+    - imagen_fondo: archivo de imagen para página izquierda
     - texto: Era una vez una pequeña niña que vivía en el bosque...
     - tamano: 1200 (opcional)
     - color_fondo: #FFFFFF (opcional)
     - color_texto: #2c2c2c (opcional)
     """
-    logger.info(f"🔲 CREAR FICHA CUADRADA: {len(texto)} caracteres, {tamano}x{tamano}px")
+    logger.info(f"🔲 CREAR FICHAS DOBLES: imagen + {len(texto)} caracteres, {tamano}x{tamano}px")
 
     try:
         if not texto or not texto.strip():
             raise HTTPException(status_code=400, detail="Texto requerido")
 
+        if not imagen_fondo:
+            raise HTTPException(status_code=400, detail="Imagen de fondo requerida")
+
         # Validar tamaño
         if tamano < 400 or tamano > 3000:
             raise HTTPException(status_code=400, detail="Tamaño debe estar entre 400 y 3000 píxeles")
 
-        # Crear la ficha cuadrada
-        ficha_img = crear_ficha_cuadrada_texto(
+        # ============ CREAR PÁGINA IZQUIERDA: IMAGEN ============
+        img_bytes = await imagen_fondo.read()
+        fondo_img = Image.open(io.BytesIO(img_bytes))
+        if fondo_img.mode != 'RGB':
+            fondo_img = fondo_img.convert('RGB')
+
+        # Redimensionar imagen a formato cuadrado
+        pagina_imagen = fondo_img.resize((tamano, tamano), Image.Resampling.LANCZOS)
+
+        # ============ CREAR PÁGINA DERECHA: TEXTO ============
+        pagina_texto = crear_ficha_cuadrada_texto(
             texto=texto,
             tamano=tamano,
             color_fondo=color_fondo,
             color_texto=color_texto
         )
 
-        # Guardar archivo temporal
+        # ============ GUARDAR AMBAS PÁGINAS ============
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         palabras_inicio = ' '.join(texto.split()[:3])  # Primeras 3 palabras
         titulo_sanitizado = sanitize_filename(palabras_inicio)
-        filename = f"Ficha_Cuadrada_{titulo_sanitizado}_{tamano}px_{timestamp}.png"
 
-        output_path = f"/tmp/{filename}"
-        ficha_img.save(output_path, "PNG", quality=95, dpi=(300, 300))
+        # Archivo imagen (página izquierda)
+        filename_imagen = f"Pagina_Imagen_{titulo_sanitizado}_{tamano}px_{timestamp}.png"
+        ruta_imagen = f"/tmp/{filename_imagen}"
+        pagina_imagen.save(ruta_imagen, "PNG", quality=95, dpi=(300, 300))
+
+        # Archivo texto (página derecha)
+        filename_texto = f"Pagina_Texto_{titulo_sanitizado}_{tamano}px_{timestamp}.png"
+        ruta_texto = f"/tmp/{filename_texto}"
+        pagina_texto.save(ruta_texto, "PNG", quality=95, dpi=(300, 300))
 
         palabras_totales = len(texto.split())
-        logger.info(f"✅ Ficha cuadrada creada: {filename} ({palabras_totales} palabras)")
+        logger.info(f"✅ Fichas dobles creadas: {filename_imagen} + {filename_texto} ({palabras_totales} palabras)")
 
+        # Devolver una de las imágenes y ambas rutas en headers
         return FileResponse(
-            output_path,
+            ruta_texto,  # Devolver la página de texto como principal
             media_type="image/png",
-            filename=filename,
+            filename=filename_texto,
             headers={
                 "X-Tamano": str(tamano),
                 "X-Palabras": str(palabras_totales),
                 "X-Color-Fondo": color_fondo,
-                "X-Color-Texto": color_texto
+                "X-Color-Texto": color_texto,
+                "ruta_imagen": ruta_imagen,
+                "ruta_texto": ruta_texto
             }
         )
 
     except Exception as e:
-        logger.error(f"❌ Error creando ficha cuadrada: {str(e)}")
+        logger.error(f"❌ Error creando fichas dobles: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
