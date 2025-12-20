@@ -30,6 +30,11 @@ class FichaCuadradaRequest(BaseModel):
     color_fondo: str = "#FFFFFF"  # Color de fondo en hexadecimal
     color_texto: str = "#2c2c2c"  # Color del texto en hexadecimal
 
+class CombinarHojasCuadradasRequest(BaseModel):
+    hojas: List[dict]  # [{"ruta_imagen": "/tmp/img1.png", "ruta_texto": "/tmp/txt1.png"}, ...]
+    portada: str = None  # Base64 de la imagen de portada (opcional)
+    titulo: str = None   # Título del cuento para la portada
+
 # ============================================================================
 # FUNCIONES AUXILIARES
 # ============================================================================
@@ -1226,7 +1231,119 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
                 "X-Files-Combined": str(len(request.rutas_archivos))
             }
         )
-        
+
+    except Exception as e:
+        logger.error(f"❌ Error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# 🆕 ENDPOINT: COMBINAR HOJAS CUADRADAS
+# ============================================================================
+
+@app.post("/combinar-hojas-cuadradas")
+async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
+    """
+    Combina pares de hojas cuadradas (imagen + texto) en un solo PDF.
+
+    Body JSON:
+    {
+        "hojas": [
+            {"ruta_imagen": "/tmp/img1.png", "ruta_texto": "/tmp/txt1.png"},
+            {"ruta_imagen": "/tmp/img2.png", "ruta_texto": "/tmp/txt2.png"}
+        ],
+        "portada": "base64_string_opcional",
+        "titulo": "Mi Cuento"
+    }
+    """
+    logger.info(f"🔗 COMBINAR HOJAS CUADRADAS: {len(request.hojas)} pares + portada: {bool(request.portada)}")
+    logger.info(f"🔍 DEBUG: Título recibido: '{request.titulo}'")
+
+    try:
+        if not request.hojas:
+            raise HTTPException(status_code=400, detail="No se proporcionaron hojas")
+
+        imagenes_combinadas = []
+
+        # ============ AGREGAR PORTADA PRIMERO SI EXISTE ============
+        if request.portada:
+            try:
+                logger.info("📖 Procesando portada desde base64...")
+                titulo_para_portada = request.titulo or ""
+                portada_img = crear_portada_desde_base64(request.portada, titulo_para_portada)
+                imagenes_combinadas.append(portada_img)
+                logger.info("✅ Portada agregada como primera página")
+            except Exception as e:
+                logger.error(f"❌ Error procesando portada: {e}")
+
+        # ============ PROCESAR HOJAS EN ORDEN: IMAGEN, TEXTO, IMAGEN, TEXTO... ============
+        for i, hoja in enumerate(request.hojas):
+            logger.info(f"📄 Procesando hoja {i+1}/{len(request.hojas)}")
+
+            # Validar que existan las claves necesarias
+            if "ruta_imagen" not in hoja or "ruta_texto" not in hoja:
+                logger.warning(f"⚠️ Hoja {i+1} incompleta - se requieren ruta_imagen y ruta_texto")
+                continue
+
+            ruta_imagen = hoja["ruta_imagen"]
+            ruta_texto = hoja["ruta_texto"]
+
+            # ============ PROCESAR IMAGEN (PÁGINA IZQUIERDA) ============
+            if os.path.exists(ruta_imagen):
+                try:
+                    img_imagen = Image.open(ruta_imagen)
+                    if img_imagen.mode != 'RGB':
+                        img_imagen = img_imagen.convert('RGB')
+                    imagenes_combinadas.append(img_imagen)
+                    logger.info(f"✅ Página imagen {i+1} agregada: {ruta_imagen}")
+                except Exception as e:
+                    logger.error(f"❌ Error procesando imagen {ruta_imagen}: {e}")
+            else:
+                logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
+
+            # ============ PROCESAR TEXTO (PÁGINA DERECHA) ============
+            if os.path.exists(ruta_texto):
+                try:
+                    img_texto = Image.open(ruta_texto)
+                    if img_texto.mode != 'RGB':
+                        img_texto = img_texto.convert('RGB')
+                    imagenes_combinadas.append(img_texto)
+                    logger.info(f"✅ Página texto {i+1} agregada: {ruta_texto}")
+                except Exception as e:
+                    logger.error(f"❌ Error procesando texto {ruta_texto}: {e}")
+            else:
+                logger.warning(f"⚠️ Texto no encontrada: {ruta_texto}")
+
+        if not imagenes_combinadas:
+            raise HTTPException(status_code=400, detail="No hay imágenes válidas para combinar")
+
+        # ============ CREAR PDF COMBINADO ============
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        titulo_sanitizado = sanitize_filename(request.titulo) if request.titulo else "Cuento_Cuadrado"
+        filename = f"{titulo_sanitizado}_{len(imagenes_combinadas)}pag_{timestamp}.pdf"
+        output_path = f"/tmp/{filename}"
+
+        imagenes_a_pdf(imagenes_combinadas, output_path)
+
+        total_paginas = len(imagenes_combinadas)
+        paginas_hojas = len(request.hojas) * 2  # Cada hoja son 2 páginas (imagen + texto)
+        tiene_portada = 1 if request.portada else 0
+
+        logger.info(f"✅ PDF hojas cuadradas combinado: {total_paginas} páginas (portada: {tiene_portada}, hojas: {paginas_hojas//2} pares)")
+
+        return FileResponse(
+            output_path,
+            media_type="application/pdf",
+            filename=filename,
+            headers={
+                "X-Total-Pages": str(total_paginas),
+                "X-Hojas-Pares": str(len(request.hojas)),
+                "X-Has-Portada": str(tiene_portada),
+                "X-Titulo": request.titulo or "Sin_Titulo"
+            }
+        )
+
     except Exception as e:
         logger.error(f"❌ Error: {str(e)}")
         import traceback
@@ -1827,14 +1944,15 @@ async def crear_ficha(
 def root():
     return {
         "status": "ok",
-        "version": "10.1-FICHAS-CUADRADAS",
-        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos_con_portada", "crear_ficha_cuadrada"],
+        "version": "10.2-HOJAS-CUADRADAS",
+        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos_con_portada", "crear_ficha_cuadrada", "combinar_hojas_cuadradas"],
         "endpoints": {
             "POST /crear-cuento-multipagina": "Crea cuentos multipágina automático (PDF)",
             "POST /crear-ficha": "Crea ficha de 1 página (PNG)",
-            "POST /crear-ficha-cuadrada": "🆕 Crea fichas cuadradas solo texto para Amazon KDP (PNG)",
+            "POST /crear-ficha-cuadrada": "🆕 Crea fichas dobles cuadradas imagen+texto para Amazon KDP (PNG)",
             "POST /crear-portada": "Crea portada con título desde imagen (PNG)",
-            "POST /combinar-documentos": "Combina páginas + portada opcional en PDF"
+            "POST /combinar-documentos": "Combina páginas + portada opcional en PDF",
+            "POST /combinar-hojas-cuadradas": "🆕 Combina pares de hojas cuadradas en PDF"
         }
     }
 
@@ -1931,4 +2049,4 @@ async def crear_ficha_cuadrada(
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "version": "10.1-FICHAS-CUADRADAS"}
+    return {"status": "healthy", "version": "10.2-HOJAS-CUADRADAS"}
