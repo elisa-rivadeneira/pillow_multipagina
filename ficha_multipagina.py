@@ -1843,46 +1843,49 @@ def root():
 # ============================================================================
 
 @app.post("/crear-ficha-cuadrada")
-async def crear_ficha_cuadrada(request: FichaCuadradaRequest):
+async def crear_ficha_cuadrada(
+    texto: str = Form(...),
+    tamano: int = Form(default=1200),
+    color_fondo: str = Form(default="#FFFFFF"),
+    color_texto: str = Form(default="#2c2c2c")
+):
     """
     Crea una ficha cuadrada con solo texto para Amazon KDP.
 
-    Body JSON:
-    {
-        "texto": "Era una vez una pequeña niña que vivía en el bosque...",
-        "tamano": 1200,
-        "color_fondo": "#FFFFFF",
-        "color_texto": "#2c2c2c"
-    }
+    Form data:
+    - texto: Era una vez una pequeña niña que vivía en el bosque...
+    - tamano: 1200 (opcional)
+    - color_fondo: #FFFFFF (opcional)
+    - color_texto: #2c2c2c (opcional)
     """
-    logger.info(f"🔲 CREAR FICHA CUADRADA: {len(request.texto)} caracteres, {request.tamano}x{request.tamano}px")
+    logger.info(f"🔲 CREAR FICHA CUADRADA: {len(texto)} caracteres, {tamano}x{tamano}px")
 
     try:
-        if not request.texto or not request.texto.strip():
+        if not texto or not texto.strip():
             raise HTTPException(status_code=400, detail="Texto requerido")
 
         # Validar tamaño
-        if request.tamano < 400 or request.tamano > 3000:
+        if tamano < 400 or tamano > 3000:
             raise HTTPException(status_code=400, detail="Tamaño debe estar entre 400 y 3000 píxeles")
 
         # Crear la ficha cuadrada
         ficha_img = crear_ficha_cuadrada_texto(
-            texto=request.texto,
-            tamano=request.tamano,
-            color_fondo=request.color_fondo,
-            color_texto=request.color_texto
+            texto=texto,
+            tamano=tamano,
+            color_fondo=color_fondo,
+            color_texto=color_texto
         )
 
         # Guardar archivo temporal
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        palabras_inicio = ' '.join(request.texto.split()[:3])  # Primeras 3 palabras
+        palabras_inicio = ' '.join(texto.split()[:3])  # Primeras 3 palabras
         titulo_sanitizado = sanitize_filename(palabras_inicio)
-        filename = f"Ficha_Cuadrada_{titulo_sanitizado}_{request.tamano}px_{timestamp}.png"
+        filename = f"Ficha_Cuadrada_{titulo_sanitizado}_{tamano}px_{timestamp}.png"
 
         output_path = f"/tmp/{filename}"
         ficha_img.save(output_path, "PNG", quality=95, dpi=(300, 300))
 
-        palabras_totales = len(request.texto.split())
+        palabras_totales = len(texto.split())
         logger.info(f"✅ Ficha cuadrada creada: {filename} ({palabras_totales} palabras)")
 
         return FileResponse(
@@ -1890,10 +1893,10 @@ async def crear_ficha_cuadrada(request: FichaCuadradaRequest):
             media_type="image/png",
             filename=filename,
             headers={
-                "X-Tamano": str(request.tamano),
+                "X-Tamano": str(tamano),
                 "X-Palabras": str(palabras_totales),
-                "X-Color-Fondo": request.color_fondo,
-                "X-Color-Texto": request.color_texto
+                "X-Color-Fondo": color_fondo,
+                "X-Color-Texto": color_texto
             }
         )
 
