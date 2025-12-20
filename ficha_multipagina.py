@@ -24,6 +24,12 @@ class CombinarDocumentosRequest(BaseModel):
     portada: str = None  # Base64 de la imagen de portada (opcional)
     titulo: str = None   # Título del cuento para la portada
 
+class FichaCuadradaRequest(BaseModel):
+    texto: str
+    tamano: int = 1200  # Tamaño de la ficha cuadrada en píxeles
+    color_fondo: str = "#FFFFFF"  # Color de fondo en hexadecimal
+    color_texto: str = "#2c2c2c"  # Color del texto en hexadecimal
+
 # ============================================================================
 # FUNCIONES AUXILIARES
 # ============================================================================
@@ -1020,6 +1026,98 @@ def crear_portada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -
 
     return canvas.convert('RGB')
 
+def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str = "#FFFFFF", color_texto: str = "#2c2c2c") -> Image.Image:
+    """Crea una ficha cuadrada con texto elegante para niños de 10 años."""
+    logger.info(f"📄 Creando ficha cuadrada {tamano}x{tamano} con {len(texto)} caracteres")
+
+    # Crear canvas cuadrado
+    canvas = Image.new('RGB', (tamano, tamano), color_fondo)
+    draw = ImageDraw.Draw(canvas)
+
+    # Configurar fuentes legibles para niños de 10 años
+    try:
+        # Fuente principal: legible y amigable para niños
+        font_size_base = max(40, tamano // 30)  # Tamaño proporcional al tamaño de la ficha
+        font_texto = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size_base)
+        logger.info(f"✅ Fuente cargada: DejaVuSans tamaño {font_size_base}")
+    except Exception as e:
+        logger.warning(f"⚠️ Error cargando fuente personalizada: {e}")
+        font_texto = ImageFont.load_default()
+        font_size_base = 40
+
+    # Configurar márgenes y espaciado
+    margen = tamano * 0.08  # 8% de margen en cada lado
+    area_texto_ancho = tamano - (2 * margen)
+    area_texto_alto = tamano - (2 * margen)
+
+    # Dividir texto en líneas que quepan en el ancho disponible
+    palabras = texto.strip().split()
+    lineas = []
+    linea_actual = []
+
+    for palabra in palabras:
+        test_line = ' '.join(linea_actual + [palabra])
+        try:
+            test_width = draw.textlength(test_line, font=font_texto)
+        except AttributeError:
+            bbox = draw.textbbox((0, 0), test_line, font=font_texto)
+            test_width = bbox[2] - bbox[0]
+
+        if test_width <= area_texto_ancho:
+            linea_actual.append(palabra)
+        else:
+            if linea_actual:
+                lineas.append(' '.join(linea_actual))
+            linea_actual = [palabra]
+
+    if linea_actual:
+        lineas.append(' '.join(linea_actual))
+
+    # Calcular espaciado entre líneas
+    if lineas:
+        try:
+            altura_linea = draw.textbbox((0, 0), "Ag", font=font_texto)[3] - draw.textbbox((0, 0), "Ag", font=font_texto)[1]
+        except:
+            altura_linea = font_size_base
+
+        espacio_total_texto = len(lineas) * altura_linea
+        espacio_entre_lineas = max(10, (area_texto_alto - espacio_total_texto) // max(1, len(lineas) - 1))
+
+        # Si el texto no cabe, reducir tamaño de fuente
+        while espacio_total_texto > area_texto_alto and font_size_base > 20:
+            font_size_base -= 2
+            try:
+                font_texto = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size_base)
+            except:
+                font_texto = ImageFont.load_default()
+
+            altura_linea = draw.textbbox((0, 0), "Ag", font=font_texto)[3] - draw.textbbox((0, 0), "Ag", font=font_texto)[1]
+            espacio_total_texto = len(lineas) * altura_linea
+            espacio_entre_lineas = max(10, (area_texto_alto - espacio_total_texto) // max(1, len(lineas) - 1))
+
+    # Centrar texto verticalmente
+    y_inicio = margen + (area_texto_alto - espacio_total_texto - (len(lineas) - 1) * espacio_entre_lineas) // 2
+
+    # Dibujar cada línea centrada horizontalmente
+    y_actual = y_inicio
+    for linea in lineas:
+        try:
+            ancho_linea = draw.textlength(linea, font=font_texto)
+        except AttributeError:
+            bbox = draw.textbbox((0, 0), linea, font=font_texto)
+            ancho_linea = bbox[2] - bbox[0]
+
+        x_centrado = (tamano - ancho_linea) // 2
+        draw.text((x_centrado, y_actual), linea, font=font_texto, fill=color_texto)
+        y_actual += altura_linea + espacio_entre_lineas
+
+    # Agregar borde sutil (opcional)
+    borde_color = "#e0e0e0"
+    draw.rectangle([2, 2, tamano-3, tamano-3], outline=borde_color, width=2)
+
+    logger.info(f"✅ Ficha cuadrada creada: {len(lineas)} líneas, fuente {font_size_base}px")
+    return canvas
+
 def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
     """Convierte una lista de imágenes PIL a un PDF multipágina."""
     if not imagenes:
@@ -1729,15 +1827,82 @@ async def crear_ficha(
 def root():
     return {
         "status": "ok",
-        "version": "10.0-PORTADA",
-        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos_con_portada"],
+        "version": "10.1-FICHAS-CUADRADAS",
+        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos_con_portada", "crear_ficha_cuadrada"],
         "endpoints": {
             "POST /crear-cuento-multipagina": "Crea cuentos multipágina automático (PDF)",
             "POST /crear-ficha": "Crea ficha de 1 página (PNG)",
-            "POST /combinar-documentos": "🆕 Combina páginas + portada opcional en PDF"
+            "POST /crear-ficha-cuadrada": "🆕 Crea fichas cuadradas solo texto para Amazon KDP (PNG)",
+            "POST /crear-portada": "Crea portada con título desde imagen (PNG)",
+            "POST /combinar-documentos": "Combina páginas + portada opcional en PDF"
         }
     }
 
+# ============================================================================
+# 🆕 ENDPOINT: CREAR FICHA CUADRADA
+# ============================================================================
+
+@app.post("/crear-ficha-cuadrada")
+async def crear_ficha_cuadrada(request: FichaCuadradaRequest):
+    """
+    Crea una ficha cuadrada con solo texto para Amazon KDP.
+
+    Body JSON:
+    {
+        "texto": "Era una vez una pequeña niña que vivía en el bosque...",
+        "tamano": 1200,
+        "color_fondo": "#FFFFFF",
+        "color_texto": "#2c2c2c"
+    }
+    """
+    logger.info(f"🔲 CREAR FICHA CUADRADA: {len(request.texto)} caracteres, {request.tamano}x{request.tamano}px")
+
+    try:
+        if not request.texto or not request.texto.strip():
+            raise HTTPException(status_code=400, detail="Texto requerido")
+
+        # Validar tamaño
+        if request.tamano < 400 or request.tamano > 3000:
+            raise HTTPException(status_code=400, detail="Tamaño debe estar entre 400 y 3000 píxeles")
+
+        # Crear la ficha cuadrada
+        ficha_img = crear_ficha_cuadrada_texto(
+            texto=request.texto,
+            tamano=request.tamano,
+            color_fondo=request.color_fondo,
+            color_texto=request.color_texto
+        )
+
+        # Guardar archivo temporal
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        palabras_inicio = ' '.join(request.texto.split()[:3])  # Primeras 3 palabras
+        titulo_sanitizado = sanitize_filename(palabras_inicio)
+        filename = f"Ficha_Cuadrada_{titulo_sanitizado}_{request.tamano}px_{timestamp}.png"
+
+        output_path = f"/tmp/{filename}"
+        ficha_img.save(output_path, "PNG", quality=95, dpi=(300, 300))
+
+        palabras_totales = len(request.texto.split())
+        logger.info(f"✅ Ficha cuadrada creada: {filename} ({palabras_totales} palabras)")
+
+        return FileResponse(
+            output_path,
+            media_type="image/png",
+            filename=filename,
+            headers={
+                "X-Tamano": str(request.tamano),
+                "X-Palabras": str(palabras_totales),
+                "X-Color-Fondo": request.color_fondo,
+                "X-Color-Texto": request.color_texto
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error creando ficha cuadrada: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 def health():
-    return {"status": "healthy", "version": "10.0-PORTADA"}
+    return {"status": "healthy", "version": "10.1-FICHAS-CUADRADAS"}
