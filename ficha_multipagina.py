@@ -1300,6 +1300,23 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
         logger.info(f"   rutas_images: {request.rutas_images}")
         logger.info(f"   rutas_textos: {request.rutas_textos}")
 
+        # ============ DEBUG: LISTAR TODOS LOS ARCHIVOS EN /tmp/ ============
+        try:
+            tmp_files = os.listdir("/tmp/")
+            all_png_files = [f for f in tmp_files if f.endswith('.png')]
+            logger.info(f"🔍 TODOS los archivos PNG en /tmp/ ({len(all_png_files)} archivos):")
+            for f in all_png_files:
+                logger.info(f"   📁 /tmp/{f}")
+        except Exception as e:
+            logger.error(f"❌ Error listando /tmp/: {e}")
+
+        # ============ VERIFICAR COINCIDENCIAS ============
+        archivos_esperados = request.rutas_images + request.rutas_textos
+        logger.info(f"🔍 Archivos esperados ({len(archivos_esperados)}):")
+        for archivo in archivos_esperados:
+            existe = os.path.exists(archivo)
+            logger.info(f"   {'✅' if existe else '❌'} {archivo}")
+
         for i in range(num_pares):
             logger.info(f"📄 Procesando par {i+1}/{num_pares}")
 
@@ -1312,7 +1329,16 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
             logger.info(f"🔍 Verificando si existe: {ruta_imagen}")
             logger.info(f"🔍 os.path.exists() = {os.path.exists(ruta_imagen)}")
 
-            if os.path.exists(ruta_imagen):
+            if not os.path.exists(ruta_imagen):
+                logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
+                # Listar archivos en /tmp para debug
+                try:
+                    tmp_files = os.listdir("/tmp/")
+                    png_files = [f for f in tmp_files if f.endswith('.png')]
+                    logger.info(f"🔍 Archivos PNG en /tmp: {png_files[:5]}")  # Solo mostrar primeros 5
+                except:
+                    pass
+            else:
                 try:
                     img_imagen = Image.open(ruta_imagen)
                     logger.info(f"📏 Imagen {i+1} abierta: {img_imagen.size}, mode: {img_imagen.mode}")
@@ -1327,23 +1353,15 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
                     logger.error(f"❌ Error procesando imagen {ruta_imagen}: {e}")
                     import traceback
                     logger.error(f"❌ Stack trace: {traceback.format_exc()}")
-                    continue
-            else:
-                logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
-                # Listar archivos en /tmp para debug
-                try:
-                    tmp_files = os.listdir("/tmp/")
-                    png_files = [f for f in tmp_files if f.endswith('.png')]
-                    logger.info(f"🔍 Archivos PNG en /tmp: {png_files[:10]}")  # Solo mostrar primeros 10
-                except:
-                    pass
 
             # ============ PROCESAR TEXTO (PÁGINA DERECHA) ============
             logger.info(f"📝 Procesando texto {i+1}...")
             logger.info(f"🔍 Verificando si existe: {ruta_texto}")
             logger.info(f"🔍 os.path.exists() = {os.path.exists(ruta_texto)}")
 
-            if os.path.exists(ruta_texto):
+            if not os.path.exists(ruta_texto):
+                logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
+            else:
                 try:
                     img_texto = Image.open(ruta_texto)
                     logger.info(f"📏 Texto {i+1} abierto: {img_texto.size}, mode: {img_texto.mode}")
@@ -1358,9 +1376,6 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
                     logger.error(f"❌ Error procesando texto {ruta_texto}: {e}")
                     import traceback
                     logger.error(f"❌ Stack trace: {traceback.format_exc()}")
-                    continue
-            else:
-                logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
 
         logger.info(f"🔍 Resumen después de procesar {num_pares} pares:")
         logger.info(f"   - Total imágenes en lista final: {len(imagenes_combinadas)}")
