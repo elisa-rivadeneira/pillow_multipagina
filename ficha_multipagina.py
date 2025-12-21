@@ -1257,80 +1257,133 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
         "titulo": "Mi Cuento"
     }
     """
-    logger.info(f"🔗 COMBINAR HOJAS CUADRADAS: {len(request.hojas)} pares + portada: {bool(request.portada)}")
-    logger.info(f"🔍 DEBUG: Título recibido: '{request.titulo}'")
+    logger.info(f"🔗 INICIO COMBINAR HOJAS CUADRADAS")
+    logger.info(f"📊 Recibido: {len(request.hojas)} pares + portada: {bool(request.portada)}")
+    logger.info(f"🔍 Título: '{request.titulo}'")
 
     try:
+        # ============ VALIDACIÓN INICIAL ============
+        logger.info("🔍 Step 1: Validación inicial...")
         if not request.hojas:
+            logger.error("❌ No se proporcionaron hojas")
             raise HTTPException(status_code=400, detail="No se proporcionaron hojas")
 
         imagenes_combinadas = []
+        logger.info(f"✅ Validación inicial OK - {len(request.hojas)} hojas a procesar")
 
         # ============ AGREGAR PORTADA PRIMERO SI EXISTE ============
+        logger.info("🔍 Step 2: Procesando portada...")
         if request.portada:
             try:
-                logger.info("📖 Procesando portada desde base64...")
+                logger.info("📖 Decodificando portada base64...")
                 titulo_para_portada = request.titulo or ""
                 portada_img = crear_portada_desde_base64(request.portada, titulo_para_portada)
                 imagenes_combinadas.append(portada_img)
-                logger.info("✅ Portada agregada como primera página")
+                logger.info("✅ Portada agregada exitosamente")
             except Exception as e:
                 logger.error(f"❌ Error procesando portada: {e}")
+                # Continuar sin portada si hay error
+        else:
+            logger.info("ℹ️ Sin portada - continuando...")
 
         # ============ PROCESAR HOJAS EN ORDEN: IMAGEN, TEXTO, IMAGEN, TEXTO... ============
+        logger.info("🔍 Step 3: Procesando hojas...")
         for i, hoja in enumerate(request.hojas):
             logger.info(f"📄 Procesando hoja {i+1}/{len(request.hojas)}")
 
-            # Validar que existan las claves necesarias
+            # Validar estructura de datos
+            if not isinstance(hoja, dict):
+                logger.warning(f"⚠️ Hoja {i+1} no es un dict válido: {type(hoja)}")
+                continue
+
             if "ruta_imagen" not in hoja or "ruta_texto" not in hoja:
-                logger.warning(f"⚠️ Hoja {i+1} incompleta - se requieren ruta_imagen y ruta_texto")
+                logger.warning(f"⚠️ Hoja {i+1} incompleta - claves: {list(hoja.keys())}")
                 continue
 
             ruta_imagen = hoja["ruta_imagen"]
             ruta_texto = hoja["ruta_texto"]
+            logger.info(f"🔍 Hoja {i+1}: imagen='{ruta_imagen}', texto='{ruta_texto}'")
 
             # ============ PROCESAR IMAGEN (PÁGINA IZQUIERDA) ============
+            logger.info(f"🖼️ Procesando imagen {i+1}...")
             if os.path.exists(ruta_imagen):
                 try:
                     img_imagen = Image.open(ruta_imagen)
+                    logger.info(f"📏 Imagen {i+1} abierta: {img_imagen.size}, mode: {img_imagen.mode}")
+
                     if img_imagen.mode != 'RGB':
                         img_imagen = img_imagen.convert('RGB')
+                        logger.info(f"🎨 Imagen {i+1} convertida a RGB")
+
                     imagenes_combinadas.append(img_imagen)
-                    logger.info(f"✅ Página imagen {i+1} agregada: {ruta_imagen}")
+                    logger.info(f"✅ Imagen {i+1} agregada exitosamente")
                 except Exception as e:
                     logger.error(f"❌ Error procesando imagen {ruta_imagen}: {e}")
+                    continue
             else:
                 logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
 
             # ============ PROCESAR TEXTO (PÁGINA DERECHA) ============
+            logger.info(f"📝 Procesando texto {i+1}...")
             if os.path.exists(ruta_texto):
                 try:
                     img_texto = Image.open(ruta_texto)
+                    logger.info(f"📏 Texto {i+1} abierto: {img_texto.size}, mode: {img_texto.mode}")
+
                     if img_texto.mode != 'RGB':
                         img_texto = img_texto.convert('RGB')
+                        logger.info(f"🎨 Texto {i+1} convertido a RGB")
+
                     imagenes_combinadas.append(img_texto)
-                    logger.info(f"✅ Página texto {i+1} agregada: {ruta_texto}")
+                    logger.info(f"✅ Texto {i+1} agregado exitosamente")
                 except Exception as e:
                     logger.error(f"❌ Error procesando texto {ruta_texto}: {e}")
+                    continue
             else:
-                logger.warning(f"⚠️ Texto no encontrada: {ruta_texto}")
+                logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
 
+        # ============ VALIDACIÓN FINAL ============
+        logger.info("🔍 Step 4: Validación final...")
         if not imagenes_combinadas:
+            logger.error("❌ No hay imágenes válidas para combinar")
             raise HTTPException(status_code=400, detail="No hay imágenes válidas para combinar")
 
+        logger.info(f"✅ {len(imagenes_combinadas)} imágenes listas para combinar")
+
         # ============ CREAR PDF COMBINADO ============
+        logger.info("🔍 Step 5: Creando PDF...")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         titulo_sanitizado = sanitize_filename(request.titulo) if request.titulo else "Cuento_Cuadrado"
         filename = f"{titulo_sanitizado}_{len(imagenes_combinadas)}pag_{timestamp}.pdf"
         output_path = f"/tmp/{filename}"
 
+        logger.info(f"📁 Archivo destino: {output_path}")
+        logger.info("🔄 Iniciando conversión a PDF...")
+
         imagenes_a_pdf(imagenes_combinadas, output_path)
 
+        logger.info("✅ PDF creado exitosamente")
+
+        # ============ PREPARAR RESPUESTA ============
+        logger.info("🔍 Step 6: Preparando respuesta...")
         total_paginas = len(imagenes_combinadas)
-        paginas_hojas = len(request.hojas) * 2  # Cada hoja son 2 páginas (imagen + texto)
+        paginas_hojas = len(request.hojas) * 2
         tiene_portada = 1 if request.portada else 0
 
-        logger.info(f"✅ PDF hojas cuadradas combinado: {total_paginas} páginas (portada: {tiene_portada}, hojas: {paginas_hojas//2} pares)")
+        logger.info(f"📊 Estadísticas finales:")
+        logger.info(f"   - Total páginas: {total_paginas}")
+        logger.info(f"   - Pares de hojas procesados: {len(request.hojas)}")
+        logger.info(f"   - Tiene portada: {bool(tiene_portada)}")
+
+        # Verificar que el archivo se creó correctamente
+        if not os.path.exists(output_path):
+            logger.error(f"❌ El archivo PDF no fue creado: {output_path}")
+            raise HTTPException(status_code=500, detail="Error creando archivo PDF")
+
+        file_size = os.path.getsize(output_path)
+        logger.info(f"📄 Archivo creado: {filename} ({file_size} bytes)")
+
+        logger.info("✅ COMBINAR HOJAS CUADRADAS COMPLETADO EXITOSAMENTE")
 
         return FileResponse(
             output_path,
@@ -1340,15 +1393,21 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
                 "X-Total-Pages": str(total_paginas),
                 "X-Hojas-Pares": str(len(request.hojas)),
                 "X-Has-Portada": str(tiene_portada),
-                "X-Titulo": request.titulo or "Sin_Titulo"
+                "X-Titulo": request.titulo or "Sin_Titulo",
+                "X-File-Size": str(file_size)
             }
         )
 
+    except HTTPException:
+        # Re-lanzar HTTPException sin modificar
+        raise
     except Exception as e:
-        logger.error(f"❌ Error: {str(e)}")
+        logger.error(f"❌ ERROR CRÍTICO en combinar-hojas-cuadradas:")
+        logger.error(f"   - Tipo: {type(e).__name__}")
+        logger.error(f"   - Mensaje: {str(e)}")
         import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"   - Stack trace: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str = "Mi Cuento") -> Image.Image:
     """Crea una portada hermosa desde imagen PIL con título multilínea y auto-size."""
 
