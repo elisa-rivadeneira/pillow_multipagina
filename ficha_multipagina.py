@@ -1263,6 +1263,17 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
     logger.info(f"📖 Tiene portada: {bool(request.portada)}")
     logger.info(f"🔍 Título: '{request.titulo}'")
 
+    # Log para confirmar que el endpoint se está ejecutando
+    logger.info(f"🚀 ENDPOINT EJECUTÁNDOSE CORRECTAMENTE")
+
+    # Verificar que los datos llegaron correctamente
+    logger.info(f"🔍 Tipo de rutas_images: {type(request.rutas_images)}")
+    logger.info(f"🔍 Tipo de rutas_textos: {type(request.rutas_textos)}")
+
+    if not hasattr(request, 'rutas_images') or not hasattr(request, 'rutas_textos'):
+        logger.error(f"❌ DATOS MALFORMADOS: request no tiene los campos correctos")
+        raise HTTPException(status_code=400, detail="Datos malformados: faltan rutas_images o rutas_textos")
+
     try:
         # ============ VALIDACIÓN INICIAL ============
         logger.info("🔍 Step 1: Validación inicial...")
@@ -1294,92 +1305,41 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
         else:
             logger.info("ℹ️ Sin portada - continuando...")
 
-        # ============ PROCESAR HOJAS INTERCALADAS: IMAGEN1, TEXTO1, IMAGEN2, TEXTO2... ============
-        logger.info("🔍 Step 3: Procesando hojas intercaladas...")
-        logger.info(f"🔍 DEBUG arrays recibidos:")
-        logger.info(f"   rutas_images: {request.rutas_images}")
-        logger.info(f"   rutas_textos: {request.rutas_textos}")
+        # ============ PROCESAR TODAS LAS RUTAS COMO EN EL ENDPOINT ORIGINAL ============
+        logger.info("🔍 Step 3: Procesando todas las rutas...")
 
-        # ============ DEBUG: LISTAR TODOS LOS ARCHIVOS EN /tmp/ ============
-        try:
-            tmp_files = os.listdir("/tmp/")
-            all_png_files = [f for f in tmp_files if f.endswith('.png')]
-            logger.info(f"🔍 TODOS los archivos PNG en /tmp/ ({len(all_png_files)} archivos):")
-            for f in all_png_files:
-                logger.info(f"   📁 /tmp/{f}")
-        except Exception as e:
-            logger.error(f"❌ Error listando /tmp/: {e}")
-
-        # ============ VERIFICAR COINCIDENCIAS ============
-        archivos_esperados = request.rutas_images + request.rutas_textos
-        logger.info(f"🔍 Archivos esperados ({len(archivos_esperados)}):")
-        for archivo in archivos_esperados:
-            existe = os.path.exists(archivo)
-            logger.info(f"   {'✅' if existe else '❌'} {archivo}")
-
+        # Combinar todos los archivos en orden: img1, txt1, img2, txt2, ...
+        todas_las_rutas = []
         for i in range(num_pares):
-            logger.info(f"📄 Procesando par {i+1}/{num_pares}")
+            todas_las_rutas.append(request.rutas_images[i])
+            todas_las_rutas.append(request.rutas_textos[i])
 
-            ruta_imagen = request.rutas_images[i]
-            ruta_texto = request.rutas_textos[i]
-            logger.info(f"🔍 Par {i+1}: imagen='{ruta_imagen}', texto='{ruta_texto}'")
+        logger.info(f"🔍 Total de archivos a procesar: {len(todas_las_rutas)}")
 
-            # ============ PROCESAR IMAGEN (PÁGINA IZQUIERDA) ============
-            logger.info(f"🖼️ Procesando imagen {i+1}...")
-            logger.info(f"🔍 Verificando si existe: {ruta_imagen}")
-            logger.info(f"🔍 os.path.exists() = {os.path.exists(ruta_imagen)}")
+        # Procesar como el endpoint original que funciona
+        for i, ruta in enumerate(todas_las_rutas):
+            logger.info(f"📄 Procesando {i+1}/{len(todas_las_rutas)}: {ruta}")
 
-            if not os.path.exists(ruta_imagen):
-                logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
-                # Listar archivos en /tmp para debug
+            if not os.path.exists(ruta):
+                logger.warning(f"⚠️ Archivo no encontrado: {ruta}")
+                continue
+
+            extension = os.path.splitext(ruta)[1].lower()
+
+            if extension in ['.png', '.jpg', '.jpeg']:
                 try:
-                    tmp_files = os.listdir("/tmp/")
-                    png_files = [f for f in tmp_files if f.endswith('.png')]
-                    logger.info(f"🔍 Archivos PNG en /tmp: {png_files[:5]}")  # Solo mostrar primeros 5
-                except:
-                    pass
-            else:
-                try:
-                    img_imagen = Image.open(ruta_imagen)
-                    logger.info(f"📏 Imagen {i+1} abierta: {img_imagen.size}, mode: {img_imagen.mode}")
-
-                    if img_imagen.mode != 'RGB':
-                        img_imagen = img_imagen.convert('RGB')
-                        logger.info(f"🎨 Imagen {i+1} convertida a RGB")
-
-                    imagenes_combinadas.append(img_imagen)
-                    logger.info(f"✅ Imagen {i+1} agregada exitosamente (total imágenes: {len(imagenes_combinadas)})")
+                    img = Image.open(ruta)
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    imagenes_combinadas.append(img)
+                    logger.info(f"✅ Archivo {i+1} agregado: {ruta}")
                 except Exception as e:
-                    logger.error(f"❌ Error procesando imagen {ruta_imagen}: {e}")
-                    import traceback
-                    logger.error(f"❌ Stack trace: {traceback.format_exc()}")
-
-            # ============ PROCESAR TEXTO (PÁGINA DERECHA) ============
-            logger.info(f"📝 Procesando texto {i+1}...")
-            logger.info(f"🔍 Verificando si existe: {ruta_texto}")
-            logger.info(f"🔍 os.path.exists() = {os.path.exists(ruta_texto)}")
-
-            if not os.path.exists(ruta_texto):
-                logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
+                    logger.error(f"❌ Error procesando {ruta}: {e}")
+                    continue
             else:
-                try:
-                    img_texto = Image.open(ruta_texto)
-                    logger.info(f"📏 Texto {i+1} abierto: {img_texto.size}, mode: {img_texto.mode}")
+                logger.warning(f"⚠️ Formato no soportado: {extension}")
 
-                    if img_texto.mode != 'RGB':
-                        img_texto = img_texto.convert('RGB')
-                        logger.info(f"🎨 Texto {i+1} convertido a RGB")
-
-                    imagenes_combinadas.append(img_texto)
-                    logger.info(f"✅ Texto {i+1} agregado exitosamente (total imágenes: {len(imagenes_combinadas)})")
-                except Exception as e:
-                    logger.error(f"❌ Error procesando texto {ruta_texto}: {e}")
-                    import traceback
-                    logger.error(f"❌ Stack trace: {traceback.format_exc()}")
-
-        logger.info(f"🔍 Resumen después de procesar {num_pares} pares:")
-        logger.info(f"   - Total imágenes en lista final: {len(imagenes_combinadas)}")
-        logger.info(f"   - Esperado (con portada): {num_pares * 2 + (1 if request.portada else 0)}")
+        logger.info(f"🔍 Total imágenes agregadas: {len(imagenes_combinadas)}")
 
         # ============ VALIDACIÓN FINAL ============
         logger.info("🔍 Step 4: Validación final...")
@@ -1437,16 +1397,22 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
             }
         )
 
-    except HTTPException:
+    except HTTPException as he:
         # Re-lanzar HTTPException sin modificar
-        raise
+        logger.error(f"❌ HTTPException en combinar-hojas-cuadradas: {he.detail}")
+        raise he
     except Exception as e:
         logger.error(f"❌ ERROR CRÍTICO en combinar-hojas-cuadradas:")
         logger.error(f"   - Tipo: {type(e).__name__}")
         logger.error(f"   - Mensaje: {str(e)}")
         import traceback
-        logger.error(f"   - Stack trace: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+        logger.error(f"   - Stack trace completo:")
+        logger.error(traceback.format_exc())
+
+        # Crear respuesta de error más detallada
+        error_detail = f"Error interno del servidor: {type(e).__name__}: {str(e)}"
+        logger.error(f"❌ Enviando error 500: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
 def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str = "Mi Cuento") -> Image.Image:
     """Crea una portada hermosa desde imagen PIL con título multilínea y auto-size."""
 
@@ -2148,3 +2114,10 @@ async def crear_ficha_cuadrada(
 @app.get("/health")
 def health():
     return {"status": "healthy", "version": "10.2-HOJAS-CUADRADAS"}
+
+@app.post("/test-combinar")
+async def test_combinar(data: dict):
+    """Endpoint de prueba simple para verificar conectividad."""
+    logger.info(f"🧪 TEST ENDPOINT EJECUTADO")
+    logger.info(f"🔍 Datos recibidos: {data}")
+    return {"status": "success", "mensaje": "Endpoint funcionando", "datos_recibidos": data}
