@@ -2070,10 +2070,34 @@ async def crear_ficha_cuadrada(
         ruta_imagen = f"/tmp/{filename_imagen}"
         pagina_imagen.save(ruta_imagen, "PNG", quality=95, dpi=(300, 300))
 
+        # DEBUG: Verificar que se guardó correctamente
+        logger.info(f"🔍 DEBUG IMAGEN: Archivo guardado en: {ruta_imagen}")
+        logger.info(f"🔍 DEBUG IMAGEN: Archivo existe después de guardar: {os.path.exists(ruta_imagen)}")
+        if os.path.exists(ruta_imagen):
+            size = os.path.getsize(ruta_imagen)
+            logger.info(f"🔍 DEBUG IMAGEN: Tamaño del archivo: {size} bytes")
+
         # Archivo texto (página derecha)
         filename_texto = f"Pagina_Texto_{titulo_sanitizado}_{tamano}px_{timestamp}.png"
         ruta_texto = f"/tmp/{filename_texto}"
         pagina_texto.save(ruta_texto, "PNG", quality=95, dpi=(300, 300))
+
+        # DEBUG: Verificar que se guardó correctamente
+        logger.info(f"🔍 DEBUG TEXTO: Archivo guardado en: {ruta_texto}")
+        logger.info(f"🔍 DEBUG TEXTO: Archivo existe después de guardar: {os.path.exists(ruta_texto)}")
+        if os.path.exists(ruta_texto):
+            size = os.path.getsize(ruta_texto)
+            logger.info(f"🔍 DEBUG TEXTO: Tamaño del archivo: {size} bytes")
+
+        # DEBUG: Listar archivos en /tmp para verificar
+        try:
+            tmp_files = os.listdir("/tmp/")
+            png_files = [f for f in tmp_files if f.endswith('.png')]
+            logger.info(f"🔍 DEBUG: Archivos PNG en /tmp después de guardar: {len(png_files)} archivos")
+            for f in png_files[-5:]:  # Mostrar últimos 5 archivos
+                logger.info(f"   📁 /tmp/{f}")
+        except Exception as e:
+            logger.error(f"❌ Error listando /tmp: {e}")
 
         palabras_totales = len(texto.split())
         logger.info(f"✅ Fichas dobles creadas: {filename_imagen} + {filename_texto} ({palabras_totales} palabras)")
