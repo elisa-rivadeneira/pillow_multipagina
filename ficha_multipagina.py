@@ -31,7 +31,8 @@ class FichaCuadradaRequest(BaseModel):
     color_texto: str = "#2c2c2c"  # Color del texto en hexadecimal
 
 class CombinarHojasCuadradasRequest(BaseModel):
-    hojas: List[dict]  # [{"ruta_imagen": "/tmp/img1.png", "ruta_texto": "/tmp/txt1.png"}, ...]
+    rutas_images: List[str]  # ["/tmp/img1.png", "/tmp/img2.png", ...]
+    rutas_textos: List[str]  # ["/tmp/txt1.png", "/tmp/txt2.png", ...]
     portada: str = None  # Base64 de la imagen de portada (opcional)
     titulo: str = None   # Título del cuento para la portada
 
@@ -1243,58 +1244,40 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
 # ============================================================================
 
 @app.post("/combinar-hojas-cuadradas")
-async def combinar_hojas_cuadradas(
-    hojas: str = Form(...),  # JSON string con las hojas
-    portada: str = Form(default=""),  # Base64 opcional
-    titulo: str = Form(default="")   # Título opcional
-):
+async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
     """
-    Combina pares de hojas cuadradas (imagen + texto) en un solo PDF.
+    Combina arrays separados de imágenes y textos en un PDF intercalado.
 
-    Form data:
-    - hojas: JSON string con [{"ruta_imagen": "/tmp/img1.png", "ruta_texto": "/tmp/txt1.png"}, ...]
-    - portada: base64 string opcional
-    - titulo: título opcional
+    Body JSON:
+    {
+        "rutas_images": ["/tmp/img1.png", "/tmp/img2.png"],
+        "rutas_textos": ["/tmp/txt1.png", "/tmp/txt2.png"],
+        "portada": "base64_string_opcional",
+        "titulo": "Mi Cuento"
+    }
+
+    Orden final: [Portada], Imagen1, Texto1, Imagen2, Texto2, ...
     """
     logger.info(f"🔗 INICIO COMBINAR HOJAS CUADRADAS")
-    logger.info(f"📊 Hojas recibidas (raw): {hojas[:200]}...")
-    logger.info(f"🔍 Título: '{titulo}'")
-    logger.info(f"📖 Tiene portada: {bool(portada.strip())}")
+    logger.info(f"📊 Imágenes: {len(request.rutas_images)}, Textos: {len(request.rutas_textos)}")
+    logger.info(f"📖 Tiene portada: {bool(request.portada)}")
+    logger.info(f"🔍 Título: '{request.titulo}'")
 
     try:
-        # ============ PARSEAR JSON DE HOJAS ============
-        logger.info("🔍 Step 0: Parseando JSON de hojas...")
-        import json
-        try:
-            hojas_list = json.loads(hojas)
-            if not isinstance(hojas_list, list):
-                raise ValueError("hojas debe ser un array JSON")
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Error parseando JSON de hojas: {e}")
-            raise HTTPException(status_code=400, detail=f"JSON inválido en hojas: {str(e)}")
-        except Exception as e:
-            logger.error(f"❌ Error procesando hojas: {e}")
-            raise HTTPException(status_code=400, detail=f"Error en hojas: {str(e)}")
-
-        logger.info(f"✅ JSON parseado correctamente: {len(hojas_list)} hojas")
-
-        # Crear objeto request simulado para mantener compatibilidad
-        class RequestSimulado:
-            def __init__(self):
-                self.hojas = hojas_list
-                self.portada = portada.strip() if portada.strip() else None
-                self.titulo = titulo.strip() if titulo.strip() else None
-
-        request = RequestSimulado()
-
         # ============ VALIDACIÓN INICIAL ============
         logger.info("🔍 Step 1: Validación inicial...")
-        if not request.hojas:
-            logger.error("❌ No se proporcionaron hojas")
-            raise HTTPException(status_code=400, detail="No se proporcionaron hojas")
 
+        if not request.rutas_images and not request.rutas_textos:
+            logger.error("❌ No se proporcionaron imágenes ni textos")
+            raise HTTPException(status_code=400, detail="No se proporcionaron imágenes ni textos")
+
+        if len(request.rutas_images) != len(request.rutas_textos):
+            logger.error(f"❌ Desbalance: {len(request.rutas_images)} imágenes vs {len(request.rutas_textos)} textos")
+            raise HTTPException(status_code=400, detail="Debe haber el mismo número de imágenes y textos")
+
+        num_pares = len(request.rutas_images)
         imagenes_combinadas = []
-        logger.info(f"✅ Validación inicial OK - {len(request.hojas)} hojas a procesar")
+        logger.info(f"✅ Validación inicial OK - {num_pares} pares a procesar")
 
         # ============ AGREGAR PORTADA PRIMERO SI EXISTE ============
         logger.info("🔍 Step 2: Procesando portada...")
@@ -1311,23 +1294,14 @@ async def combinar_hojas_cuadradas(
         else:
             logger.info("ℹ️ Sin portada - continuando...")
 
-        # ============ PROCESAR HOJAS EN ORDEN: IMAGEN, TEXTO, IMAGEN, TEXTO... ============
-        logger.info("🔍 Step 3: Procesando hojas...")
-        for i, hoja in enumerate(request.hojas):
-            logger.info(f"📄 Procesando hoja {i+1}/{len(request.hojas)}")
+        # ============ PROCESAR HOJAS INTERCALADAS: IMAGEN1, TEXTO1, IMAGEN2, TEXTO2... ============
+        logger.info("🔍 Step 3: Procesando hojas intercaladas...")
+        for i in range(num_pares):
+            logger.info(f"📄 Procesando par {i+1}/{num_pares}")
 
-            # Validar estructura de datos
-            if not isinstance(hoja, dict):
-                logger.warning(f"⚠️ Hoja {i+1} no es un dict válido: {type(hoja)}")
-                continue
-
-            if "ruta_imagen" not in hoja or "ruta_texto" not in hoja:
-                logger.warning(f"⚠️ Hoja {i+1} incompleta - claves: {list(hoja.keys())}")
-                continue
-
-            ruta_imagen = hoja["ruta_imagen"]
-            ruta_texto = hoja["ruta_texto"]
-            logger.info(f"🔍 Hoja {i+1}: imagen='{ruta_imagen}', texto='{ruta_texto}'")
+            ruta_imagen = request.rutas_images[i]
+            ruta_texto = request.rutas_textos[i]
+            logger.info(f"🔍 Par {i+1}: imagen='{ruta_imagen}', texto='{ruta_texto}'")
 
             # ============ PROCESAR IMAGEN (PÁGINA IZQUIERDA) ============
             logger.info(f"🖼️ Procesando imagen {i+1}...")
@@ -1392,12 +1366,12 @@ async def combinar_hojas_cuadradas(
         # ============ PREPARAR RESPUESTA ============
         logger.info("🔍 Step 6: Preparando respuesta...")
         total_paginas = len(imagenes_combinadas)
-        paginas_hojas = len(request.hojas) * 2
+        paginas_hojas = num_pares * 2
         tiene_portada = 1 if request.portada else 0
 
         logger.info(f"📊 Estadísticas finales:")
         logger.info(f"   - Total páginas: {total_paginas}")
-        logger.info(f"   - Pares de hojas procesados: {len(request.hojas)}")
+        logger.info(f"   - Pares procesados: {num_pares}")
         logger.info(f"   - Tiene portada: {bool(tiene_portada)}")
 
         # Verificar que el archivo se creó correctamente
@@ -1416,7 +1390,7 @@ async def combinar_hojas_cuadradas(
             filename=filename,
             headers={
                 "X-Total-Pages": str(total_paginas),
-                "X-Hojas-Pares": str(len(request.hojas)),
+                "X-Hojas-Pares": str(num_pares),
                 "X-Has-Portada": str(tiene_portada),
                 "X-Titulo": request.titulo or "Sin_Titulo",
                 "X-File-Size": str(file_size)
