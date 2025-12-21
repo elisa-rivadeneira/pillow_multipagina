@@ -1244,7 +1244,7 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
 # ============================================================================
 
 @app.post("/combinar-hojas-cuadradas")
-async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
+async def combinar_hojas_cuadradas(data: dict):
     """
     Combina arrays separados de imágenes y textos en un PDF intercalado.
 
@@ -1259,44 +1259,42 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
     Orden final: [Portada], Imagen1, Texto1, Imagen2, Texto2, ...
     """
     logger.info(f"🔗 INICIO COMBINAR HOJAS CUADRADAS")
-    logger.info(f"📊 Imágenes: {len(request.rutas_images)}, Textos: {len(request.rutas_textos)}")
-    logger.info(f"📖 Tiene portada: {bool(request.portada)}")
-    logger.info(f"🔍 Título: '{request.titulo}'")
-
-    # Log para confirmar que el endpoint se está ejecutando
     logger.info(f"🚀 ENDPOINT EJECUTÁNDOSE CORRECTAMENTE")
+    logger.info(f"🔍 Datos recibidos: {data}")
 
-    # Verificar que los datos llegaron correctamente
-    logger.info(f"🔍 Tipo de rutas_images: {type(request.rutas_images)}")
-    logger.info(f"🔍 Tipo de rutas_textos: {type(request.rutas_textos)}")
+    # Extraer datos del dict (como el test que funciona)
+    rutas_images = data.get('rutas_images', [])
+    rutas_textos = data.get('rutas_textos', [])
+    portada = data.get('portada', '')
+    titulo = data.get('titulo', '')
 
-    if not hasattr(request, 'rutas_images') or not hasattr(request, 'rutas_textos'):
-        logger.error(f"❌ DATOS MALFORMADOS: request no tiene los campos correctos")
-        raise HTTPException(status_code=400, detail="Datos malformados: faltan rutas_images o rutas_textos")
+    logger.info(f"📊 Imágenes: {len(rutas_images)}, Textos: {len(rutas_textos)}")
+    logger.info(f"📖 Tiene portada: {bool(portada)}")
+    logger.info(f"🔍 Título: '{titulo}'")
 
     try:
         # ============ VALIDACIÓN INICIAL ============
         logger.info("🔍 Step 1: Validación inicial...")
 
-        if not request.rutas_images and not request.rutas_textos:
+        if not rutas_images and not rutas_textos:
             logger.error("❌ No se proporcionaron imágenes ni textos")
             raise HTTPException(status_code=400, detail="No se proporcionaron imágenes ni textos")
 
-        if len(request.rutas_images) != len(request.rutas_textos):
-            logger.error(f"❌ Desbalance: {len(request.rutas_images)} imágenes vs {len(request.rutas_textos)} textos")
+        if len(rutas_images) != len(rutas_textos):
+            logger.error(f"❌ Desbalance: {len(rutas_images)} imágenes vs {len(rutas_textos)} textos")
             raise HTTPException(status_code=400, detail="Debe haber el mismo número de imágenes y textos")
 
-        num_pares = len(request.rutas_images)
+        num_pares = len(rutas_images)
         imagenes_combinadas = []
         logger.info(f"✅ Validación inicial OK - {num_pares} pares a procesar")
 
         # ============ AGREGAR PORTADA PRIMERO SI EXISTE ============
         logger.info("🔍 Step 2: Procesando portada...")
-        if request.portada:
+        if portada:
             try:
                 logger.info("📖 Decodificando portada base64...")
-                titulo_para_portada = request.titulo or ""
-                portada_img = crear_portada_desde_base64(request.portada, titulo_para_portada)
+                titulo_para_portada = titulo or ""
+                portada_img = crear_portada_desde_base64(portada, titulo_para_portada)
                 imagenes_combinadas.append(portada_img)
                 logger.info("✅ Portada agregada exitosamente")
             except Exception as e:
@@ -1311,8 +1309,8 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
         # Combinar todos los archivos en orden: img1, txt1, img2, txt2, ...
         todas_las_rutas = []
         for i in range(num_pares):
-            todas_las_rutas.append(request.rutas_images[i])
-            todas_las_rutas.append(request.rutas_textos[i])
+            todas_las_rutas.append(rutas_images[i])
+            todas_las_rutas.append(rutas_textos[i])
 
         logger.info(f"🔍 Total de archivos a procesar: {len(todas_las_rutas)}")
 
@@ -1352,7 +1350,7 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
         # ============ CREAR PDF COMBINADO ============
         logger.info("🔍 Step 5: Creando PDF...")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        titulo_sanitizado = sanitize_filename(request.titulo) if request.titulo else "Cuento_Cuadrado"
+        titulo_sanitizado = sanitize_filename(titulo) if titulo else "Cuento_Cuadrado"
         filename = f"{titulo_sanitizado}_{len(imagenes_combinadas)}pag_{timestamp}.pdf"
         output_path = f"/tmp/{filename}"
 
@@ -1367,7 +1365,7 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
         logger.info("🔍 Step 6: Preparando respuesta...")
         total_paginas = len(imagenes_combinadas)
         paginas_hojas = num_pares * 2
-        tiene_portada = 1 if request.portada else 0
+        tiene_portada = 1 if portada else 0
 
         logger.info(f"📊 Estadísticas finales:")
         logger.info(f"   - Total páginas: {total_paginas}")
@@ -1392,7 +1390,7 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
                 "X-Total-Pages": str(total_paginas),
                 "X-Hojas-Pares": str(num_pares),
                 "X-Has-Portada": str(tiene_portada),
-                "X-Titulo": request.titulo or "Sin_Titulo",
+                "X-Titulo": titulo or "Sin_Titulo",
                 "X-File-Size": str(file_size)
             }
         )
