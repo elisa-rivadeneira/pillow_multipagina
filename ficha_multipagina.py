@@ -1303,41 +1303,31 @@ async def combinar_hojas_cuadradas(data: dict):
         else:
             logger.info("ℹ️ Sin portada - continuando...")
 
-        # ============ PROCESAR TODAS LAS RUTAS COMO EN EL ENDPOINT ORIGINAL ============
-        logger.info("🔍 Step 3: Procesando todas las rutas...")
+        # ============ PROCESAR SOLO LAS IMÁGENES PRIMERO ============
+        logger.info("🔍 Step 3: Procesando SOLO las imágenes...")
+        logger.info(f"🔍 Total imágenes a procesar: {len(rutas_images)}")
 
-        # Combinar todos los archivos en orden: img1, txt1, img2, txt2, ...
-        todas_las_rutas = []
-        for i in range(num_pares):
-            todas_las_rutas.append(rutas_images[i])
-            todas_las_rutas.append(rutas_textos[i])
+        # Procesar SOLO las imágenes por ahora (sin textos)
+        for i, ruta_imagen in enumerate(rutas_images):
+            logger.info(f"🖼️ Procesando imagen {i+1}/{len(rutas_images)}: {ruta_imagen}")
 
-        logger.info(f"🔍 Total de archivos a procesar: {len(todas_las_rutas)}")
-
-        # Procesar como el endpoint original que funciona
-        for i, ruta in enumerate(todas_las_rutas):
-            logger.info(f"📄 Procesando {i+1}/{len(todas_las_rutas)}: {ruta}")
-
-            if not os.path.exists(ruta):
-                logger.warning(f"⚠️ Archivo no encontrado: {ruta}")
+            if not os.path.exists(ruta_imagen):
+                logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
                 continue
 
-            extension = os.path.splitext(ruta)[1].lower()
+            try:
+                img = Image.open(ruta_imagen)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                imagenes_combinadas.append(img)
+                logger.info(f"✅ Imagen {i+1} agregada exitosamente: {ruta_imagen}")
+                logger.info(f"📊 Total imágenes hasta ahora: {len(imagenes_combinadas)}")
+            except Exception as e:
+                logger.error(f"❌ Error procesando imagen {ruta_imagen}: {e}")
+                continue
 
-            if extension in ['.png', '.jpg', '.jpeg']:
-                try:
-                    img = Image.open(ruta)
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
-                    imagenes_combinadas.append(img)
-                    logger.info(f"✅ Archivo {i+1} agregado: {ruta}")
-                except Exception as e:
-                    logger.error(f"❌ Error procesando {ruta}: {e}")
-                    continue
-            else:
-                logger.warning(f"⚠️ Formato no soportado: {extension}")
-
-        logger.info(f"🔍 Total imágenes agregadas: {len(imagenes_combinadas)}")
+        logger.info(f"🔍 RESUMEN: Total imágenes agregadas: {len(imagenes_combinadas)}")
+        logger.info(f"🔍 Esperado: {1 if portada else 0} portada + {len(rutas_images)} imágenes = {(1 if portada else 0) + len(rutas_images)}")
 
         # ============ VALIDACIÓN FINAL ============
         logger.info("🔍 Step 4: Validación final...")
