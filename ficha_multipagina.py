@@ -1296,6 +1296,10 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
 
         # ============ PROCESAR HOJAS INTERCALADAS: IMAGEN1, TEXTO1, IMAGEN2, TEXTO2... ============
         logger.info("🔍 Step 3: Procesando hojas intercaladas...")
+        logger.info(f"🔍 DEBUG arrays recibidos:")
+        logger.info(f"   rutas_images: {request.rutas_images}")
+        logger.info(f"   rutas_textos: {request.rutas_textos}")
+
         for i in range(num_pares):
             logger.info(f"📄 Procesando par {i+1}/{num_pares}")
 
@@ -1305,6 +1309,9 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
 
             # ============ PROCESAR IMAGEN (PÁGINA IZQUIERDA) ============
             logger.info(f"🖼️ Procesando imagen {i+1}...")
+            logger.info(f"🔍 Verificando si existe: {ruta_imagen}")
+            logger.info(f"🔍 os.path.exists() = {os.path.exists(ruta_imagen)}")
+
             if os.path.exists(ruta_imagen):
                 try:
                     img_imagen = Image.open(ruta_imagen)
@@ -1315,15 +1322,27 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
                         logger.info(f"🎨 Imagen {i+1} convertida a RGB")
 
                     imagenes_combinadas.append(img_imagen)
-                    logger.info(f"✅ Imagen {i+1} agregada exitosamente")
+                    logger.info(f"✅ Imagen {i+1} agregada exitosamente (total imágenes: {len(imagenes_combinadas)})")
                 except Exception as e:
                     logger.error(f"❌ Error procesando imagen {ruta_imagen}: {e}")
+                    import traceback
+                    logger.error(f"❌ Stack trace: {traceback.format_exc()}")
                     continue
             else:
                 logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
+                # Listar archivos en /tmp para debug
+                try:
+                    tmp_files = os.listdir("/tmp/")
+                    png_files = [f for f in tmp_files if f.endswith('.png')]
+                    logger.info(f"🔍 Archivos PNG en /tmp: {png_files[:10]}")  # Solo mostrar primeros 10
+                except:
+                    pass
 
             # ============ PROCESAR TEXTO (PÁGINA DERECHA) ============
             logger.info(f"📝 Procesando texto {i+1}...")
+            logger.info(f"🔍 Verificando si existe: {ruta_texto}")
+            logger.info(f"🔍 os.path.exists() = {os.path.exists(ruta_texto)}")
+
             if os.path.exists(ruta_texto):
                 try:
                     img_texto = Image.open(ruta_texto)
@@ -1334,12 +1353,18 @@ async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
                         logger.info(f"🎨 Texto {i+1} convertido a RGB")
 
                     imagenes_combinadas.append(img_texto)
-                    logger.info(f"✅ Texto {i+1} agregado exitosamente")
+                    logger.info(f"✅ Texto {i+1} agregado exitosamente (total imágenes: {len(imagenes_combinadas)})")
                 except Exception as e:
                     logger.error(f"❌ Error procesando texto {ruta_texto}: {e}")
+                    import traceback
+                    logger.error(f"❌ Stack trace: {traceback.format_exc()}")
                     continue
             else:
                 logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
+
+        logger.info(f"🔍 Resumen después de procesar {num_pares} pares:")
+        logger.info(f"   - Total imágenes en lista final: {len(imagenes_combinadas)}")
+        logger.info(f"   - Esperado (con portada): {num_pares * 2 + (1 if request.portada else 0)}")
 
         # ============ VALIDACIÓN FINAL ============
         logger.info("🔍 Step 4: Validación final...")
