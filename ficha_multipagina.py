@@ -1243,25 +1243,50 @@ async def combinar_documentos(request: CombinarDocumentosRequest):
 # ============================================================================
 
 @app.post("/combinar-hojas-cuadradas")
-async def combinar_hojas_cuadradas(request: CombinarHojasCuadradasRequest):
+async def combinar_hojas_cuadradas(
+    hojas: str = Form(...),  # JSON string con las hojas
+    portada: str = Form(default=""),  # Base64 opcional
+    titulo: str = Form(default="")   # Título opcional
+):
     """
     Combina pares de hojas cuadradas (imagen + texto) en un solo PDF.
 
-    Body JSON:
-    {
-        "hojas": [
-            {"ruta_imagen": "/tmp/img1.png", "ruta_texto": "/tmp/txt1.png"},
-            {"ruta_imagen": "/tmp/img2.png", "ruta_texto": "/tmp/txt2.png"}
-        ],
-        "portada": "base64_string_opcional",
-        "titulo": "Mi Cuento"
-    }
+    Form data:
+    - hojas: JSON string con [{"ruta_imagen": "/tmp/img1.png", "ruta_texto": "/tmp/txt1.png"}, ...]
+    - portada: base64 string opcional
+    - titulo: título opcional
     """
     logger.info(f"🔗 INICIO COMBINAR HOJAS CUADRADAS")
-    logger.info(f"📊 Recibido: {len(request.hojas)} pares + portada: {bool(request.portada)}")
-    logger.info(f"🔍 Título: '{request.titulo}'")
+    logger.info(f"📊 Hojas recibidas (raw): {hojas[:200]}...")
+    logger.info(f"🔍 Título: '{titulo}'")
+    logger.info(f"📖 Tiene portada: {bool(portada.strip())}")
 
     try:
+        # ============ PARSEAR JSON DE HOJAS ============
+        logger.info("🔍 Step 0: Parseando JSON de hojas...")
+        import json
+        try:
+            hojas_list = json.loads(hojas)
+            if not isinstance(hojas_list, list):
+                raise ValueError("hojas debe ser un array JSON")
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Error parseando JSON de hojas: {e}")
+            raise HTTPException(status_code=400, detail=f"JSON inválido en hojas: {str(e)}")
+        except Exception as e:
+            logger.error(f"❌ Error procesando hojas: {e}")
+            raise HTTPException(status_code=400, detail=f"Error en hojas: {str(e)}")
+
+        logger.info(f"✅ JSON parseado correctamente: {len(hojas_list)} hojas")
+
+        # Crear objeto request simulado para mantener compatibilidad
+        class RequestSimulado:
+            def __init__(self):
+                self.hojas = hojas_list
+                self.portada = portada.strip() if portada.strip() else None
+                self.titulo = titulo.strip() if titulo.strip() else None
+
+        request = RequestSimulado()
+
         # ============ VALIDACIÓN INICIAL ============
         logger.info("🔍 Step 1: Validación inicial...")
         if not request.hojas:
