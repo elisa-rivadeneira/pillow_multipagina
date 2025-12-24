@@ -2044,55 +2044,57 @@ async def crear_ficha_cuadrada(
         if tamano < 400 or tamano > 3000:
             raise HTTPException(status_code=400, detail="Tamaño debe estar entre 400 y 3000 píxeles")
 
-        # ============ CREAR PÁGINA COMPLETA INTERCALADA ============
+        # ============ CREAR HOJAS SEPARADAS ============
         img_bytes = await imagen_fondo.read()
         fondo_img = Image.open(io.BytesIO(img_bytes))
         if fondo_img.mode != 'RGB':
             fondo_img = fondo_img.convert('RGB')
 
-        # Crear página A4 completa con imagen izquierda y texto derecha
+        # Dimensiones A4
         a4_width = 2480
         a4_height = 3508
 
-        # Crear canvas A4
-        pagina_completa = Image.new('RGB', (a4_width, a4_height), color_fondo)
+        # ============ HOJA 1: SOLO IMAGEN ============
+        # Redimensionar imagen para llenar toda la página A4
+        pagina_imagen = fondo_img.resize((a4_width, a4_height), Image.Resampling.LANCZOS)
 
-        # ============ LADO IZQUIERDO: IMAGEN ============
-        lado_ancho = a4_width // 2  # 1240px cada lado
-
-        # Redimensionar imagen para llenar el lado izquierdo
-        fondo_resized = fondo_img.resize((lado_ancho, a4_height), Image.Resampling.LANCZOS)
-        pagina_completa.paste(fondo_resized, (0, 0))
-
-        # ============ LADO DERECHO: TEXTO ============
-        # Crear página de texto del mismo tamaño que el lado derecho
+        # ============ HOJA 2: SOLO TEXTO ============
+        # Crear página completa con solo texto
         pagina_texto = crear_ficha_cuadrada_texto(
             texto=texto,
-            tamano=lado_ancho,  # Usar ancho del lado derecho
+            tamano=a4_width,     # Ancho completo A4
             color_fondo=color_fondo,
             color_texto=color_texto,
-            altura=a4_height    # Altura completa A4
+            altura=a4_height     # Altura completa A4
         )
 
-        # Pegar texto en lado derecho
-        pagina_completa.paste(pagina_texto, (lado_ancho, 0))
-
-        # ============ GUARDAR PÁGINA COMPLETA ============
+        # ============ GUARDAR AMBAS HOJAS SEPARADAS ============
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         palabras_inicio = ' '.join(texto.split()[:3])  # Primeras 3 palabras
         titulo_sanitizado = sanitize_filename(palabras_inicio)
 
-        # Guardar página completa intercalada
-        filename_completa = f"Pagina_Intercalada_{titulo_sanitizado}_{timestamp}.png"
-        ruta_completa = f"/tmp/{filename_completa}"
-        pagina_completa.save(ruta_completa, "PNG", quality=95, dpi=(300, 300))
+        # Guardar hoja de imagen
+        filename_imagen = f"Hoja_Imagen_{titulo_sanitizado}_{timestamp}.png"
+        ruta_imagen = f"/tmp/{filename_imagen}"
+        pagina_imagen.save(ruta_imagen, "PNG", quality=95, dpi=(300, 300))
 
-        # DEBUG: Verificar que se guardó correctamente
-        logger.info(f"🔍 DEBUG INTERCALADA: Archivo guardado en: {ruta_completa}")
-        logger.info(f"🔍 DEBUG INTERCALADA: Archivo existe después de guardar: {os.path.exists(ruta_completa)}")
-        if os.path.exists(ruta_completa):
-            size = os.path.getsize(ruta_completa)
-            logger.info(f"🔍 DEBUG INTERCALADA: Tamaño del archivo: {size} bytes")
+        # Guardar hoja de texto
+        filename_texto = f"Hoja_Texto_{titulo_sanitizado}_{timestamp}.png"
+        ruta_texto = f"/tmp/{filename_texto}"
+        pagina_texto.save(ruta_texto, "PNG", quality=95, dpi=(300, 300))
+
+        # DEBUG: Verificar que se guardaron correctamente
+        logger.info(f"🔍 DEBUG IMAGEN: Archivo guardado en: {ruta_imagen}")
+        logger.info(f"🔍 DEBUG IMAGEN: Archivo existe: {os.path.exists(ruta_imagen)}")
+        logger.info(f"🔍 DEBUG TEXTO: Archivo guardado en: {ruta_texto}")
+        logger.info(f"🔍 DEBUG TEXTO: Archivo existe: {os.path.exists(ruta_texto)}")
+
+        if os.path.exists(ruta_imagen):
+            size = os.path.getsize(ruta_imagen)
+            logger.info(f"🔍 DEBUG IMAGEN: Tamaño: {size} bytes")
+        if os.path.exists(ruta_texto):
+            size = os.path.getsize(ruta_texto)
+            logger.info(f"🔍 DEBUG TEXTO: Tamaño: {size} bytes")
 
         # DEBUG: Listar archivos en /tmp para verificar
         try:
@@ -2105,20 +2107,22 @@ async def crear_ficha_cuadrada(
             logger.error(f"❌ Error listando /tmp: {e}")
 
         palabras_totales = len(texto.split())
-        logger.info(f"✅ Página intercalada creada: {filename_completa} ({palabras_totales} palabras)")
+        logger.info(f"✅ Hojas separadas creadas: {filename_imagen} + {filename_texto} ({palabras_totales} palabras)")
 
-        # Devolver la página completa intercalada
+        # Devolver la página de texto como principal (pero ambas rutas en headers)
         return FileResponse(
-            ruta_completa,
+            ruta_texto,
             media_type="image/png",
-            filename=filename_completa,
+            filename=filename_texto,
             headers={
                 "X-Tamano": str(tamano),
                 "X-Palabras": str(palabras_totales),
                 "X-Color-Fondo": color_fondo,
                 "X-Color-Texto": color_texto,
-                "X-Ruta-Completa": ruta_completa,
-                "X-Tipo": "pagina_intercalada"
+                "ruta_ficha_cuadrada": ruta_imagen,  # Para n8n: {{ $json.headers.ruta_ficha_cuadrada }}
+                "ruta_imagen": ruta_imagen,          # Ruta de la hoja de imagen
+                "ruta_texto": ruta_texto,            # Ruta de la hoja de texto
+                "X-Tipo": "hojas_separadas"
             }
         )
 
