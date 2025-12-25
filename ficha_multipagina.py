@@ -1560,23 +1560,35 @@ def crear_portada_cuadrada_con_titulo(portada_img: Image.Image, titulo: str = "M
 
     logger.info(f"🔍 DEBUG en crear_portada_cuadrada_con_titulo: Título recibido: '{titulo}', Tamaño: {tamano}x{tamano}")
 
-    # ============ AJUSTAR IMAGEN A TAMAÑO CUADRADO SIN CORTAR ============
-    # Crear canvas cuadrado blanco
+    # ============ USAR LA IMAGEN TAL COMO VIENE (ya procesada) ============
+    # Asumir que la imagen ya viene en el tamaño correcto desde crear_portada_cuadrada_desde_base64
+    # Solo redimensionar si es necesario para que llene mejor el espacio
+
     canvas = Image.new('RGB', (tamano, tamano), (255, 255, 255))
 
-    # Calcular dimensiones para que la imagen COMPLETA quepa en el cuadrado
-    # usando thumbnail (mantiene aspect ratio, no corta nada)
-    portada_copy = portada_img.copy()
-    portada_copy.thumbnail((tamano, tamano), Image.Resampling.LANCZOS)
+    # Si la imagen es más pequeña que el canvas, redimensionarla para que use más espacio
+    scale_factor = min(tamano / portada_img.width, tamano / portada_img.height)
 
-    # Centrar la imagen completa en el canvas cuadrado
+    if scale_factor < 1.0:
+        # La imagen es más grande que el canvas, usar thumbnail
+        portada_copy = portada_img.copy()
+        portada_copy.thumbnail((tamano, tamano), Image.Resampling.LANCZOS)
+    else:
+        # La imagen es más pequeña, agrandarla (máximo hasta 90% del canvas)
+        max_scale = 0.9  # Dejar un 10% de margen
+        final_scale = min(scale_factor * max_scale, max_scale)
+        new_width = int(portada_img.width * final_scale)
+        new_height = int(portada_img.height * final_scale)
+        portada_copy = portada_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # Centrar la imagen en el canvas cuadrado
     offset_x = (tamano - portada_copy.width) // 2
     offset_y = (tamano - portada_copy.height) // 2
     canvas.paste(portada_copy, (offset_x, offset_y))
 
     logger.info(f"📐 Imagen original: {portada_img.width}x{portada_img.height}")
-    logger.info(f"📐 Imagen ajustada: {portada_copy.width}x{portada_copy.height}")
-    logger.info(f"📐 Canvas final: {tamano}x{tamano}")
+    logger.info(f"📐 Imagen final: {portada_copy.width}x{portada_copy.height}")
+    logger.info(f"📐 Canvas: {tamano}x{tamano}, Uso: {(portada_copy.width/tamano)*100:.1f}%")
 
     # Canvas ya está creado arriba con la imagen centrada
 
