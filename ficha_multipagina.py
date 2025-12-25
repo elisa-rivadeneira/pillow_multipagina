@@ -1301,7 +1301,7 @@ async def combinar_hojas_cuadradas(data: dict):
 
                 # Redimensionar portada a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
                 kdp_size = 2550
-                portada_kdp = portada_img.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
+                portada_kdp = portada_img.thumbnail((kdp_size, kdp_size), Image.Resampling.LANCZOS)
                 imagenes_combinadas.append(portada_kdp)
                 logger.info(f"✅ Portada agregada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
             except Exception as e:
