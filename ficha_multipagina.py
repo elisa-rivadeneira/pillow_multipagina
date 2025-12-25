@@ -1298,8 +1298,12 @@ async def combinar_hojas_cuadradas(data: dict):
                 logger.info("📖 Decodificando portada base64...")
                 titulo_para_portada = titulo or ""
                 portada_img = crear_portada_desde_base64(portada, titulo_para_portada)
-                imagenes_combinadas.append(portada_img)
-                logger.info("✅ Portada agregada exitosamente")
+
+                # Redimensionar portada a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+                kdp_size = 2550
+                portada_kdp = portada_img.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
+                imagenes_combinadas.append(portada_kdp)
+                logger.info(f"✅ Portada agregada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
             except Exception as e:
                 logger.error(f"❌ Error procesando portada: {e}")
                 # Continuar sin portada si hay error
@@ -1322,10 +1326,14 @@ async def combinar_hojas_cuadradas(data: dict):
                     if not os.path.exists(ruta_imagen):
                         logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
                     else:
-                        # Cargar imagen real
+                        # Cargar imagen real y redimensionar a Amazon KDP
                         imagen_real = Image.open(ruta_imagen).convert('RGB')
-                        imagenes_combinadas.append(imagen_real)
-                        logger.info(f"✅ Imagen {i+1} cargada exitosamente")
+
+                        # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+                        kdp_size = 2550
+                        imagen_kdp = imagen_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
+                        imagenes_combinadas.append(imagen_kdp)
+                        logger.info(f"✅ Imagen {i+1} cargada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
 
                 except Exception as e:
                     logger.error(f"❌ Error cargando imagen {ruta_imagen}: {e}")
@@ -1339,10 +1347,14 @@ async def combinar_hojas_cuadradas(data: dict):
                     if not os.path.exists(ruta_texto):
                         logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
                     else:
-                        # Cargar página de texto
+                        # Cargar página de texto y redimensionar a Amazon KDP
                         texto_real = Image.open(ruta_texto).convert('RGB')
-                        imagenes_combinadas.append(texto_real)
-                        logger.info(f"✅ Texto {i+1} cargado exitosamente")
+
+                        # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+                        kdp_size = 2550
+                        texto_kdp = texto_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
+                        imagenes_combinadas.append(texto_kdp)
+                        logger.info(f"✅ Texto {i+1} cargado y redimensionado a {kdp_size}x{kdp_size}px (Amazon KDP)")
 
                 except Exception as e:
                     logger.error(f"❌ Error cargando texto {ruta_texto}: {e}")
@@ -2072,26 +2084,25 @@ async def crear_ficha_cuadrada(
         if fondo_img.mode != 'RGB':
             fondo_img = fondo_img.convert('RGB')
 
-        # Dimensiones A4
-        a4_width = 2480
-        a4_height = 3508
+        # Dimensiones CUADRADAS (usar el parámetro tamano)
+        logger.info(f"🔲 Usando dimensiones cuadradas: {tamano}x{tamano}px")
 
         # ============ HOJA 1: SOLO IMAGEN ============
-        # Redimensionar imagen para llenar toda la página A4
-        pagina_imagen = fondo_img.resize((a4_width, a4_height), Image.Resampling.LANCZOS)
+        # Redimensionar imagen para llenar toda la página cuadrada
+        pagina_imagen = fondo_img.resize((tamano, tamano), Image.Resampling.LANCZOS)
 
         # ============ HOJA 2: SOLO TEXTO ============
         # Crear página completa con solo texto
-        logger.info(f"🔍 DEBUG: Creando página de texto con dimensiones {a4_width}x{a4_height}")
+        logger.info(f"🔍 DEBUG: Creando página de texto con dimensiones {tamano}x{tamano}")
         logger.info(f"🔍 DEBUG: Texto a procesar: '{texto[:100]}...'")
 
         try:
             pagina_texto = crear_ficha_cuadrada_texto(
                 texto=texto,
-                tamano=a4_width,     # Ancho completo A4
+                tamano=tamano,       # Ancho cuadrado
                 color_fondo=color_fondo,
                 color_texto=color_texto,
-                altura=a4_height     # Altura completa A4
+                altura=tamano        # Altura cuadrada (igual al ancho)
             )
             logger.info(f"🔍 DEBUG: Página de texto creada exitosamente: {pagina_texto.size}")
         except Exception as e:
