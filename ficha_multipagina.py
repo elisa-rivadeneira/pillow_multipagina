@@ -1299,10 +1299,24 @@ async def combinar_hojas_cuadradas(data: dict):
                 titulo_para_portada = titulo or ""
                 portada_img = crear_portada_desde_base64(portada, titulo_para_portada)
 
-                # Redimensionar portada a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+                # Redimensionar portada a formato Amazon KDP cuadrado: 8.5" x 8.5" = 2550x2550px @ 300 DPI
                 kdp_size = 2550
+
+                # Para mantener calidad SIN deformar, usar thumbnail + resize al cuadrado exacto
+                # Paso 1: thumbnail para mantener aspect ratio (máximo kdp_size)
+                logger.info(f"📐 DEBUG: Portada original: {portada_img.width}x{portada_img.height}")
                 portada_img.thumbnail((kdp_size, kdp_size), Image.Resampling.LANCZOS)
-                imagenes_combinadas.append(portada_img)
+                logger.info(f"📐 DEBUG: Portada después de thumbnail: {portada_img.width}x{portada_img.height}")
+
+                # Paso 2: crear canvas cuadrado y centrar la imagen
+                canvas_cuadrado = Image.new('RGB', (kdp_size, kdp_size), (255, 255, 255))
+
+                # Centrar la imagen en el canvas cuadrado
+                offset_x = (kdp_size - portada_img.width) // 2
+                offset_y = (kdp_size - portada_img.height) // 2
+                canvas_cuadrado.paste(portada_img, (offset_x, offset_y))
+
+                imagenes_combinadas.append(canvas_cuadrado)
                 logger.info(f"✅ Portada agregada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
             except Exception as e:
                 logger.error(f"❌ Error procesando portada: {e}")
