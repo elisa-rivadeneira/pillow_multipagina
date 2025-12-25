@@ -1146,16 +1146,19 @@ def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str 
     canvas = Image.new('RGB', (tamano, altura_final), color_fondo)
     draw = ImageDraw.Draw(canvas)
 
-    # Configurar fuentes legibles para niños (tamaño moderado)
+    # Configurar fuentes legibles para niños (tamaño más pequeño)
     try:
-        # Fuente bien proporcionada (volver al tamaño original pero un poco más grande)
-        font_size_base = max(42, tamano // 28)  # Ligeramente más grande que antes (era //30)
+        # Fuente más pequeña para que quepa bien
+        font_size_base = max(38, tamano // 32)  # Reducido de //28 a //32
         font_texto = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size_base)
-        logger.info(f"✅ Fuente infantil cargada: DejaVuSans tamaño {font_size_base}px")
+        # Cargar fuente en negrilla para preguntas y exclamaciones
+        font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size_base)
+        logger.info(f"✅ Fuentes infantiles cargadas: Normal {font_size_base}px, Bold {font_size_base}px")
     except Exception as e:
-        logger.warning(f"⚠️ Error cargando fuente personalizada: {e}")
+        logger.warning(f"⚠️ Error cargando fuentes personalizadas: {e}")
         font_texto = ImageFont.load_default()
-        font_size_base = 42  # Tamaño moderado
+        font_bold = ImageFont.load_default()
+        font_size_base = 38  # Tamaño más pequeño
 
     # Configurar márgenes GENEROSOS para cuentos infantiles
     margen_horizontal = tamano * 0.15  # 15% de margen horizontal (más legible)
@@ -1165,31 +1168,65 @@ def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str 
 
     logger.info(f"📖 Márgenes infantiles: H={margen_horizontal:.0f}px ({(margen_horizontal/tamano)*100:.0f}%), V={margen_vertical:.0f}px ({(margen_vertical/altura_final)*100:.0f}%)")
 
-    # Dividir texto en líneas que quepan en el ancho disponible
-    palabras = texto.strip().split()
-    lineas = []
-    linea_actual = []
+    # PROCESAR TEXTO CON PÁRRAFOS Y FORMATO ESPECIAL
+    def procesar_texto_infantil(texto):
+        # Dividir en oraciones (salto después de punto)
+        import re
+        oraciones = re.split(r'(\. )', texto)
+        parrafos = []
 
-    for palabra in palabras:
-        test_line = ' '.join(linea_actual + [palabra])
-        try:
-            test_width = draw.textlength(test_line, font=font_texto)
-        except AttributeError:
-            bbox = draw.textbbox((0, 0), test_line, font=font_texto)
-            test_width = bbox[2] - bbox[0]
+        for i in range(0, len(oraciones), 2):
+            if i < len(oraciones):
+                oracion = oraciones[i]
+                if i + 1 < len(oraciones):
+                    oracion += oraciones[i + 1]  # Agregar el punto
+                parrafos.append(oracion.strip())
 
-        if test_width <= area_texto_ancho:
-            linea_actual.append(palabra)
-        else:
-            if linea_actual:
-                lineas.append(' '.join(linea_actual))
-            linea_actual = [palabra]
+        return [p for p in parrafos if p]  # Filtrar vacíos
 
-    if linea_actual:
-        lineas.append(' '.join(linea_actual))
+    def detectar_formato_especial(texto):
+        # Detectar preguntas y exclamaciones para negrilla
+        return bool(re.search(r'[¿?¡!]', texto))
 
-    # Calcular espaciado entre líneas
-    if lineas:
+    # Procesar texto en párrafos
+    parrafos = procesar_texto_infantil(texto)
+    lineas_con_formato = []  # Lista de (texto, es_bold)
+
+    for parrafo in parrafos:
+        palabras = parrafo.split()
+        linea_actual = []
+        es_bold = detectar_formato_especial(parrafo)
+        fuente_usar = font_bold if es_bold else font_texto
+
+        for palabra in palabras:
+            test_line = ' '.join(linea_actual + [palabra])
+            try:
+                test_width = draw.textlength(test_line, font=fuente_usar)
+            except AttributeError:
+                bbox = draw.textbbox((0, 0), test_line, font=fuente_usar)
+                test_width = bbox[2] - bbox[0]
+
+            if test_width <= area_texto_ancho:
+                linea_actual.append(palabra)
+            else:
+                if linea_actual:
+                    lineas_con_formato.append((' '.join(linea_actual), es_bold))
+                linea_actual = [palabra]
+
+        if linea_actual:
+            lineas_con_formato.append((' '.join(linea_actual), es_bold))
+
+        # Agregar línea vacía después de cada párrafo (salto de párrafo)
+        lineas_con_formato.append(('', False))
+
+    # Remover última línea vacía si existe
+    if lineas_con_formato and lineas_con_formato[-1][0] == '':
+        lineas_con_formato.pop()
+
+    logger.info(f"📖 Procesamiento infantil: {len(parrafos)} párrafos → {len(lineas_con_formato)} líneas")
+
+    # Calcular espaciado entre líneas con nuevo formato
+    if lineas_con_formato:
         try:
             altura_linea = draw.textbbox((0, 0), "Ag", font=font_texto)[3] - draw.textbbox((0, 0), "Ag", font=font_texto)[1]
         except:
@@ -1197,43 +1234,48 @@ def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str 
 
         # Calcular espaciado moderado entre líneas (reducir interlineado)
         interlineado_infantil = altura_linea * 0.25  # 25% interlineado (era 50%, demasiado)
-        espacio_total_texto = len(lineas) * altura_linea + (len(lineas) - 1) * interlineado_infantil
+        espacio_total_texto = len(lineas_con_formato) * altura_linea + (len(lineas_con_formato) - 1) * interlineado_infantil
 
         # Si el texto no cabe, reducir tamaño de fuente
         while espacio_total_texto > area_texto_alto and font_size_base > 30:  # Mínimo 30px
             font_size_base -= 3  # Reducir de a 3px
             try:
                 font_texto = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size_base)
+                font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size_base)
             except:
                 font_texto = ImageFont.load_default()
+                font_bold = ImageFont.load_default()
 
             altura_linea = draw.textbbox((0, 0), "Ag", font=font_texto)[3] - draw.textbbox((0, 0), "Ag", font=font_texto)[1]
-            interlineado_infantil = altura_linea * 0.5
-            espacio_total_texto = len(lineas) * altura_linea + (len(lineas) - 1) * interlineado_infantil
+            interlineado_infantil = altura_linea * 0.25
+            espacio_total_texto = len(lineas_con_formato) * altura_linea + (len(lineas_con_formato) - 1) * interlineado_infantil
 
         logger.info(f"📖 Tipografía infantil: {font_size_base}px, interlineado: {interlineado_infantil:.1f}px")
 
     # Centrar texto verticalmente con los nuevos márgenes
     y_inicio = margen_vertical + (area_texto_alto - espacio_total_texto) // 2
 
-    # Dibujar cada línea centrada horizontalmente
+    # Dibujar cada línea con formato centrada horizontalmente
     y_actual = y_inicio
-    for linea in lineas:
-        try:
-            ancho_linea = draw.textlength(linea, font=font_texto)
-        except AttributeError:
-            bbox = draw.textbbox((0, 0), linea, font=font_texto)
-            ancho_linea = bbox[2] - bbox[0]
+    for texto_linea, es_bold in lineas_con_formato:
+        if texto_linea:  # Solo dibujar si no es línea vacía
+            fuente_usar = font_bold if es_bold else font_texto
+            try:
+                ancho_linea = draw.textlength(texto_linea, font=fuente_usar)
+            except AttributeError:
+                bbox = draw.textbbox((0, 0), texto_linea, font=fuente_usar)
+                ancho_linea = bbox[2] - bbox[0]
 
-        x_centrado = (tamano - ancho_linea) // 2
-        draw.text((x_centrado, y_actual), linea, font=font_texto, fill=color_texto)
+            x_centrado = (tamano - ancho_linea) // 2
+            draw.text((x_centrado, y_actual), texto_linea, font=fuente_usar, fill=color_texto)
+
         y_actual += altura_linea + interlineado_infantil
 
     # Agregar borde sutil (opcional)
     borde_color = "#e0e0e0"
     draw.rectangle([2, 2, tamano-3, altura_final-3], outline=borde_color, width=2)
 
-    logger.info(f"✅ Ficha cuadrada creada: {len(lineas)} líneas, fuente {font_size_base}px")
+    logger.info(f"✅ Ficha cuadrada creada: {len(lineas_con_formato)} líneas, fuente {font_size_base}px")
     return canvas
 
 def imagenes_a_pdf(imagenes: List[Image.Image], output_path: str):
