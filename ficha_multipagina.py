@@ -1405,21 +1405,34 @@ async def combinar_hojas_cuadradas(data: dict):
                 # Redimensionar portada a formato Amazon KDP cuadrado: 8.5" x 8.5" = 2550x2550px @ 300 DPI
                 kdp_size = 2550
 
-                # Para mantener calidad SIN deformar, usar thumbnail + resize al cuadrado exacto
-                # Paso 1: thumbnail para mantener aspect ratio (máximo kdp_size)
-                logger.info(f"📐 DEBUG: Portada original antes de crear_portada_desde_base64: imagen base64 decodificada")
-                logger.info(f"📐 DEBUG: Portada después de crear_portada_desde_base64: {portada_img.width}x{portada_img.height}")
-                logger.info(f"⚠️ PROBLEMA: La función crear_portada_desde_base64 está convirtiendo a A4 y cortando la imagen original!")
-                portada_img.thumbnail((kdp_size, kdp_size), Image.Resampling.LANCZOS)
-                logger.info(f"📐 DEBUG: Portada después de thumbnail: {portada_img.width}x{portada_img.height}")
+                # ESCALAR DIRECTAMENTE A TAMAÑO AMAZON KDP SIN DEFORMAR
+                logger.info(f"📐 DEBUG: Portada original: {portada_img.width}x{portada_img.height}")
 
-                # Paso 2: crear canvas cuadrado y centrar la imagen
+                # Calcular escala para llenar el máximo posible sin deformar
+                scale_x = kdp_size / portada_img.width
+                scale_y = kdp_size / portada_img.height
+                scale = min(scale_x, scale_y)  # Usar la escala menor para que quepa completa
+
+                # Calcular nuevas dimensiones
+                new_width = int(portada_img.width * scale)
+                new_height = int(portada_img.height * scale)
+
+                logger.info(f"📐 DEBUG: Escala calculada: {scale:.3f}")
+                logger.info(f"📐 DEBUG: Nuevas dimensiones: {new_width}x{new_height}")
+
+                # Redimensionar con la escala calculada
+                portada_resized = portada_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+                # Crear canvas cuadrado y centrar la imagen escalada
                 canvas_cuadrado = Image.new('RGB', (kdp_size, kdp_size), (255, 255, 255))
 
-                # Centrar la imagen en el canvas cuadrado
-                offset_x = (kdp_size - portada_img.width) // 2
-                offset_y = (kdp_size - portada_img.height) // 2
-                canvas_cuadrado.paste(portada_img, (offset_x, offset_y))
+                # Centrar la imagen redimensionada
+                offset_x = (kdp_size - new_width) // 2
+                offset_y = (kdp_size - new_height) // 2
+                canvas_cuadrado.paste(portada_resized, (offset_x, offset_y))
+
+                logger.info(f"📐 DEBUG: Canvas final: {kdp_size}x{kdp_size}, Imagen: {new_width}x{new_height}")
+                logger.info(f"📐 DEBUG: Uso del espacio: {(new_width/kdp_size)*100:.1f}% x {(new_height/kdp_size)*100:.1f}%")
 
                 imagenes_combinadas.append(canvas_cuadrado)
                 logger.info(f"✅ Portada agregada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
