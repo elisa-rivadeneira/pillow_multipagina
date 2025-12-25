@@ -1306,31 +1306,51 @@ async def combinar_hojas_cuadradas(data: dict):
         else:
             logger.info("ℹ️ Sin portada - continuando...")
 
-        # ============ PROCESAR SOLO LAS IMÁGENES PRIMERO ============
-        logger.info("🔍 Step 3: Procesando SOLO las imágenes...")
-        logger.info(f"🔍 Total imágenes a procesar: {len(rutas_images)}")
+        # ============ PROCESAR IMÁGENES Y TEXTOS INTERCALADOS ============
+        logger.info("🔍 Step 3: Procesando imágenes y textos intercalados...")
+        logger.info(f"🔍 Total pares a procesar: {num_pares}")
+        logger.info(f"🔍 Imágenes: {len(rutas_images)}, Textos: {len(rutas_textos)}")
 
-        # Cargar imágenes reales desde las rutas proporcionadas
-        for i, ruta_imagen in enumerate(rutas_images):
-            logger.info(f"🖼️ Procesando imagen {i+1}/{len(rutas_images)}: {ruta_imagen}")
+        # Procesar cada par: imagen + texto
+        for i in range(num_pares):
+            # ============ PROCESAR IMAGEN ============
+            if i < len(rutas_images):
+                ruta_imagen = rutas_images[i]
+                logger.info(f"🖼️ Procesando imagen {i+1}/{num_pares}: {ruta_imagen}")
 
-            try:
-                if not os.path.exists(ruta_imagen):
-                    logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
-                    continue
+                try:
+                    if not os.path.exists(ruta_imagen):
+                        logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
+                    else:
+                        # Cargar imagen real
+                        imagen_real = Image.open(ruta_imagen).convert('RGB')
+                        imagenes_combinadas.append(imagen_real)
+                        logger.info(f"✅ Imagen {i+1} cargada exitosamente")
 
-                # Cargar imagen real
-                imagen_real = Image.open(ruta_imagen).convert('RGB')
-                imagenes_combinadas.append(imagen_real)
-                logger.info(f"✅ Imagen {i+1} cargada exitosamente")
-                logger.info(f"📊 Total imágenes hasta ahora: {len(imagenes_combinadas)}")
+                except Exception as e:
+                    logger.error(f"❌ Error cargando imagen {ruta_imagen}: {e}")
 
-            except Exception as e:
-                logger.error(f"❌ Error cargando imagen {ruta_imagen}: {e}")
-                continue
+            # ============ PROCESAR TEXTO ============
+            if i < len(rutas_textos):
+                ruta_texto = rutas_textos[i]
+                logger.info(f"📄 Procesando texto {i+1}/{num_pares}: {ruta_texto}")
 
-        logger.info(f"🔍 RESUMEN: Total imágenes agregadas: {len(imagenes_combinadas)}")
-        logger.info(f"🔍 Esperado: {1 if portada else 0} portada + {len(rutas_images)} imágenes = {(1 if portada else 0) + len(rutas_images)}")
+                try:
+                    if not os.path.exists(ruta_texto):
+                        logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
+                    else:
+                        # Cargar página de texto
+                        texto_real = Image.open(ruta_texto).convert('RGB')
+                        imagenes_combinadas.append(texto_real)
+                        logger.info(f"✅ Texto {i+1} cargado exitosamente")
+
+                except Exception as e:
+                    logger.error(f"❌ Error cargando texto {ruta_texto}: {e}")
+
+            logger.info(f"📊 Total páginas hasta ahora: {len(imagenes_combinadas)}")
+
+        logger.info(f"🔍 RESUMEN: Total páginas agregadas: {len(imagenes_combinadas)}")
+        logger.info(f"🔍 Esperado: {1 if portada else 0} portada + {num_pares * 2} páginas = {(1 if portada else 0) + (num_pares * 2)}")
 
         # ============ VALIDACIÓN FINAL ============
         logger.info("🔍 Step 4: Validación final...")
