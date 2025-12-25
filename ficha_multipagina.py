@@ -2109,11 +2109,11 @@ async def crear_ficha_cuadrada(
         palabras_totales = len(texto.split())
         logger.info(f"✅ Hojas separadas creadas: {filename_imagen} + {filename_texto} ({palabras_totales} palabras)")
 
-        # Devolver la página de texto como principal (pero ambas rutas en headers)
+        # Devolver la página de IMAGEN como principal (binario principal)
         return FileResponse(
-            ruta_texto,
+            ruta_imagen,
             media_type="image/png",
-            filename=filename_texto,
+            filename=filename_imagen,
             headers={
                 "X-Tamano": str(tamano),
                 "X-Palabras": str(palabras_totales),
