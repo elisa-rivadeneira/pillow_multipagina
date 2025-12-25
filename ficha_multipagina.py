@@ -1034,7 +1034,9 @@ def crear_portada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -
 
 def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str = "#FFFFFF", color_texto: str = "#2c2c2c", altura: int = None) -> Image.Image:
     """Crea una ficha cuadrada con texto elegante para niños de 10 años."""
-    logger.info(f"📄 Creando ficha cuadrada {tamano}x{tamano} con {len(texto)} caracteres")
+    altura_final = altura if altura else tamano
+    logger.info(f"📄 Creando ficha de texto {tamano}x{altura_final} con {len(texto)} caracteres")
+    logger.info(f"📄 Texto a renderizar: '{texto[:50]}...'")
 
     # Crear canvas (cuadrado o rectangular si se especifica altura)
     altura_final = altura if altura else tamano
@@ -1055,7 +1057,7 @@ def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str 
     # Configurar márgenes y espaciado
     margen = tamano * 0.08  # 8% de margen en cada lado
     area_texto_ancho = tamano - (2 * margen)
-    area_texto_alto = tamano - (2 * margen)
+    area_texto_alto = altura_final - (2 * margen)
 
     # Dividir texto en líneas que quepan en el ancho disponible
     palabras = texto.strip().split()
@@ -1120,7 +1122,7 @@ def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str 
 
     # Agregar borde sutil (opcional)
     borde_color = "#e0e0e0"
-    draw.rectangle([2, 2, tamano-3, tamano-3], outline=borde_color, width=2)
+    draw.rectangle([2, 2, tamano-3, altura_final-3], outline=borde_color, width=2)
 
     logger.info(f"✅ Ficha cuadrada creada: {len(lineas)} líneas, fuente {font_size_base}px")
     return canvas
@@ -2060,13 +2062,23 @@ async def crear_ficha_cuadrada(
 
         # ============ HOJA 2: SOLO TEXTO ============
         # Crear página completa con solo texto
-        pagina_texto = crear_ficha_cuadrada_texto(
-            texto=texto,
-            tamano=a4_width,     # Ancho completo A4
-            color_fondo=color_fondo,
-            color_texto=color_texto,
-            altura=a4_height     # Altura completa A4
-        )
+        logger.info(f"🔍 DEBUG: Creando página de texto con dimensiones {a4_width}x{a4_height}")
+        logger.info(f"🔍 DEBUG: Texto a procesar: '{texto[:100]}...'")
+
+        try:
+            pagina_texto = crear_ficha_cuadrada_texto(
+                texto=texto,
+                tamano=a4_width,     # Ancho completo A4
+                color_fondo=color_fondo,
+                color_texto=color_texto,
+                altura=a4_height     # Altura completa A4
+            )
+            logger.info(f"🔍 DEBUG: Página de texto creada exitosamente: {pagina_texto.size}")
+        except Exception as e:
+            logger.error(f"❌ ERROR creando página de texto: {e}")
+            import traceback
+            logger.error(f"❌ Stack trace: {traceback.format_exc()}")
+            raise
 
         # ============ GUARDAR AMBAS HOJAS SEPARADAS ============
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2081,7 +2093,14 @@ async def crear_ficha_cuadrada(
         # Guardar hoja de texto
         filename_texto = f"Hoja_Texto_{titulo_sanitizado}_{timestamp}.png"
         ruta_texto = f"/tmp/{filename_texto}"
-        pagina_texto.save(ruta_texto, "PNG", quality=95, dpi=(300, 300))
+        logger.info(f"🔍 DEBUG: Intentando guardar página de texto en: {ruta_texto}")
+
+        try:
+            pagina_texto.save(ruta_texto, "PNG", quality=95, dpi=(300, 300))
+            logger.info(f"✅ DEBUG: Página de texto guardada exitosamente")
+        except Exception as e:
+            logger.error(f"❌ ERROR guardando página de texto: {e}")
+            raise
 
         # DEBUG: Verificar que se guardaron correctamente
         logger.info(f"🔍 DEBUG IMAGEN: Archivo guardado en: {ruta_imagen}")
