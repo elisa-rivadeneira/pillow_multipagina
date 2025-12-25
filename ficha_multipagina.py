@@ -1436,6 +1436,122 @@ async def combinar_hojas_cuadradas(data: dict):
         error_detail = f"Error interno del servidor: {type(e).__name__}: {str(e)}"
         logger.error(f"❌ Enviando error 500: {error_detail}")
         raise HTTPException(status_code=500, detail=error_detail)
+def crear_portada_cuadrada_con_titulo(portada_img: Image.Image, titulo: str = "Mi Cuento", tamano: int = 1200) -> Image.Image:
+    """Crea una portada CUADRADA hermosa desde imagen PIL con título multilínea y auto-size."""
+
+    logger.info(f"🔍 DEBUG en crear_portada_cuadrada_con_titulo: Título recibido: '{titulo}', Tamaño: {tamano}x{tamano}")
+
+    # ============ AJUSTAR IMAGEN A TAMAÑO CUADRADO ============
+    # Redimensionar imagen para llenar el cuadrado completo
+    portada_img_resized = portada_img.resize((tamano, tamano), Image.Resampling.LANCZOS)
+
+    canvas = Image.new('RGB', (tamano, tamano), (255, 255, 255))
+    canvas.paste(portada_img_resized, (0, 0))
+
+    draw = ImageDraw.Draw(canvas)
+
+    # ====================== FUENTES PROPORCIONALES ======================
+    try:
+        base_font = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+        # Tamaño de fuente proporcional al tamaño del canvas
+        font_size = max(60, tamano // 20)  # Entre 60px mínimo y proporcional
+        font_default = ImageFont.truetype(base_font, font_size)
+        logger.info(f"✅ Fuente cargada: tamaño {font_size}px para canvas {tamano}x{tamano}")
+    except Exception as e:
+        font_default = ImageFont.load_default()
+        font_size = 60
+        logger.warning(f"⚠️ Usando fuente por defecto: {e}")
+
+    titulo_capitalizado = to_title_case(titulo)
+
+    if not titulo or not titulo.strip():
+        logger.info("❌ No hay título válido. Devolviendo portada sin texto.")
+        return canvas.convert('RGB')
+
+    # ============ CONFIGURAR ÁREA DE TEXTO CUADRADA ============
+    margin_horizontal = tamano * 0.08  # 8% margen horizontal
+    margin_vertical = tamano * 0.15    # 15% margen vertical (más espacio arriba/abajo)
+
+    max_width = tamano - (2 * margin_horizontal)
+    area_texto_y_start = margin_vertical
+    area_texto_y_end = tamano - margin_vertical
+
+    # ============ DIVIDIR TÍTULO EN LÍNEAS ============
+    palabras = titulo_capitalizado.split()
+    lineas_titulo = []
+    linea_actual = []
+
+    for palabra in palabras:
+        test_line = ' '.join(linea_actual + [palabra])
+        try:
+            ancho_test = draw.textlength(test_line, font=font_default)
+        except AttributeError:
+            bbox = draw.textbbox((0, 0), test_line, font=font_default)
+            ancho_test = bbox[2] - bbox[0]
+
+        if ancho_test <= max_width:
+            linea_actual.append(palabra)
+        else:
+            if linea_actual:
+                lineas_titulo.append(' '.join(linea_actual))
+            linea_actual = [palabra]
+
+    if linea_actual:
+        lineas_titulo.append(' '.join(linea_actual))
+
+    if not lineas_titulo:
+        logger.warning("⚠️ No se pudieron crear líneas de título")
+        return canvas.convert('RGB')
+
+    # ============ CALCULAR POSICIONAMIENTO VERTICAL ============
+    try:
+        altura_linea = draw.textbbox((0, 0), "Ag", font=font_default)[3] - draw.textbbox((0, 0), "Ag", font=font_default)[1]
+    except:
+        altura_linea = font_size
+
+    interlineado = altura_linea * 0.3
+    altura_total_texto = len(lineas_titulo) * altura_linea + (len(lineas_titulo) - 1) * interlineado
+    area_disponible = area_texto_y_end - area_texto_y_start
+
+    # Si no cabe, reducir tamaño de fuente
+    while altura_total_texto > area_disponible and font_size > 30:
+        font_size -= 5
+        try:
+            font_default = ImageFont.truetype(base_font, font_size)
+        except:
+            font_default = ImageFont.load_default()
+
+        altura_linea = draw.textbbox((0, 0), "Ag", font=font_default)[3] - draw.textbbox((0, 0), "Ag", font=font_default)[1]
+        interlineado = altura_linea * 0.3
+        altura_total_texto = len(lineas_titulo) * altura_linea + (len(lineas_titulo) - 1) * interlineado
+
+    # Centrar verticalmente
+    y_start = area_texto_y_start + (area_disponible - altura_total_texto) // 2
+
+    # ============ DIBUJAR TÍTULO CON EFECTOS ============
+    color_dorado = "#FFD700"
+    color_sombra = "#8B4513"
+
+    y_actual = y_start
+    for linea in lineas_titulo:
+        try:
+            ancho_linea = draw.textlength(linea, font=font_default)
+        except AttributeError:
+            bbox = draw.textbbox((0, 0), linea, font=font_default)
+            ancho_linea = bbox[2] - bbox[0]
+
+        x_centrado = (tamano - ancho_linea) // 2
+
+        # Sombra (offset de 3px)
+        draw.text((x_centrado + 3, y_actual + 3), linea, font=font_default, fill=color_sombra)
+        # Texto principal dorado
+        draw.text((x_centrado, y_actual), linea, font=font_default, fill=color_dorado)
+
+        y_actual += altura_linea + interlineado
+
+    logger.info(f"✅ Portada cuadrada creada: {len(lineas_titulo)} líneas, fuente {font_size}px")
+    return canvas.convert('RGB')
+
 def crear_portada_con_titulo_desde_imagen(portada_img: Image.Image, titulo: str = "Mi Cuento") -> Image.Image:
     """Crea una portada hermosa desde imagen PIL con título multilínea y auto-size."""
 
@@ -1629,6 +1745,78 @@ async def crear_portada(
 
     except Exception as e:
         logger.error(f"❌ Error creando portada: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# 🆕 ENDPOINT: CREAR PORTADA CUADRADA
+# ============================================================================
+
+@app.post("/crear-portada-cuadrada")
+async def crear_portada_cuadrada(
+    portada: UploadFile = File(...),  # Archivo binario de imagen
+    titulo: str = Form(...),          # Título del cuento
+    tamano: int = Form(default=1200)  # Tamaño cuadrado (por defecto 1200x1200)
+):
+    """
+    Crea una portada CUADRADA con título dorado para libros infantiles.
+
+    Form data:
+    - portada: archivo binario de imagen
+    - titulo: Mi Hermoso Cuento
+    - tamano: 1200 (opcional, para páginas cuadradas)
+    """
+    logger.info(f"🎨 CREAR PORTADA CUADRADA: '{titulo[:30]}...' {tamano}x{tamano}px")
+    logger.info(f"🔍 DEBUG: Título recibido: '{titulo}'")
+
+    try:
+        if not portada:
+            raise HTTPException(status_code=400, detail="Imagen de portada requerida")
+
+        if not titulo or not titulo.strip():
+            raise HTTPException(status_code=400, detail="Título requerido")
+
+        # Validar tamaño
+        if tamano < 400 or tamano > 3000:
+            raise HTTPException(status_code=400, detail="Tamaño debe estar entre 400 y 3000 píxeles")
+
+        # Leer archivo binario y crear imagen
+        portada_bytes = await portada.read()
+        portada_img = Image.open(io.BytesIO(portada_bytes))
+
+        if portada_img.mode != 'RGB':
+            portada_img = portada_img.convert('RGB')
+
+        # Crear portada cuadrada con título
+        portada_final = crear_portada_cuadrada_con_titulo(portada_img, titulo, tamano)
+
+        # Guardar como archivo temporal
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        titulo_sanitizado = sanitize_filename(titulo)
+        filename = f"Portada_Cuadrada_{titulo_sanitizado}_{tamano}px_{timestamp}.png"
+        output_path = f"/tmp/{filename}"
+
+        # Guardar la imagen cuadrada
+        portada_final.save(output_path, "PNG", quality=95, dpi=(300, 300))
+
+        logger.info(f"✅ Portada cuadrada creada: {filename}")
+
+        return FileResponse(
+            output_path,
+            media_type="image/png",
+            filename=filename,
+            headers={
+                "X-Titulo": titulo,
+                "X-Tamano": str(tamano),
+                "X-Generated": str(timestamp),
+                "X-Tipo": "portada_cuadrada",
+                "ruta_portada_cuadrada": output_path
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error creando portada cuadrada: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
@@ -2032,12 +2220,13 @@ def root():
     return {
         "status": "ok",
         "version": "10.2-HOJAS-CUADRADAS",
-        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos_con_portada", "crear_ficha_cuadrada", "combinar_hojas_cuadradas"],
+        "features": ["crear_cuento_multipagina", "crear_ficha", "combinar_documentos_con_portada", "crear_ficha_cuadrada", "combinar_hojas_cuadradas", "crear_portada_cuadrada"],
         "endpoints": {
             "POST /crear-cuento-multipagina": "Crea cuentos multipágina automático (PDF)",
             "POST /crear-ficha": "Crea ficha de 1 página (PNG)",
             "POST /crear-ficha-cuadrada": "🆕 Crea fichas dobles cuadradas imagen+texto para Amazon KDP (PNG)",
             "POST /crear-portada": "Crea portada con título desde imagen (PNG)",
+            "POST /crear-portada-cuadrada": "🆕 Crea portada CUADRADA con título para libros infantiles (PNG)",
             "POST /combinar-documentos": "Combina páginas + portada opcional en PDF",
             "POST /combinar-hojas-cuadradas": "🆕 Combina pares de hojas cuadradas en PDF"
         }
