@@ -1560,12 +1560,25 @@ def crear_portada_cuadrada_con_titulo(portada_img: Image.Image, titulo: str = "M
 
     logger.info(f"🔍 DEBUG en crear_portada_cuadrada_con_titulo: Título recibido: '{titulo}', Tamaño: {tamano}x{tamano}")
 
-    # ============ AJUSTAR IMAGEN A TAMAÑO CUADRADO ============
-    # Redimensionar imagen para llenar el cuadrado completo
-    portada_img_resized = portada_img.resize((tamano, tamano), Image.Resampling.LANCZOS)
-
+    # ============ AJUSTAR IMAGEN A TAMAÑO CUADRADO SIN CORTAR ============
+    # Crear canvas cuadrado blanco
     canvas = Image.new('RGB', (tamano, tamano), (255, 255, 255))
-    canvas.paste(portada_img_resized, (0, 0))
+
+    # Calcular dimensiones para que la imagen COMPLETA quepa en el cuadrado
+    # usando thumbnail (mantiene aspect ratio, no corta nada)
+    portada_copy = portada_img.copy()
+    portada_copy.thumbnail((tamano, tamano), Image.Resampling.LANCZOS)
+
+    # Centrar la imagen completa en el canvas cuadrado
+    offset_x = (tamano - portada_copy.width) // 2
+    offset_y = (tamano - portada_copy.height) // 2
+    canvas.paste(portada_copy, (offset_x, offset_y))
+
+    logger.info(f"📐 Imagen original: {portada_img.width}x{portada_img.height}")
+    logger.info(f"📐 Imagen ajustada: {portada_copy.width}x{portada_copy.height}")
+    logger.info(f"📐 Canvas final: {tamano}x{tamano}")
+
+    # Canvas ya está creado arriba con la imagen centrada
 
     draw = ImageDraw.Draw(canvas)
 
