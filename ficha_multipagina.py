@@ -1566,25 +1566,12 @@ def crear_portada_cuadrada_con_titulo(portada_img: Image.Image, titulo: str = "M
 
     canvas = Image.new('RGB', (tamano, tamano), (255, 255, 255))
 
-    # Si la imagen es más pequeña que el canvas, redimensionarla para que use más espacio
-    scale_factor = min(tamano / portada_img.width, tamano / portada_img.height)
+    # USAR MISMO MÉTODO QUE PÁGINAS INTERNAS: RESIZE DIRECTO AL TAMAÑO COMPLETO
+    # Redimensionar directamente al tamaño del canvas para llenar completamente
+    portada_copy = portada_img.resize((tamano, tamano), Image.Resampling.LANCZOS)
 
-    if scale_factor < 1.0:
-        # La imagen es más grande que el canvas, usar thumbnail
-        portada_copy = portada_img.copy()
-        portada_copy.thumbnail((tamano, tamano), Image.Resampling.LANCZOS)
-    else:
-        # La imagen es más pequeña, agrandarla (máximo hasta 90% del canvas)
-        max_scale = 0.9  # Dejar un 10% de margen
-        final_scale = min(scale_factor * max_scale, max_scale)
-        new_width = int(portada_img.width * final_scale)
-        new_height = int(portada_img.height * final_scale)
-        portada_copy = portada_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-    # Centrar la imagen en el canvas cuadrado
-    offset_x = (tamano - portada_copy.width) // 2
-    offset_y = (tamano - portada_copy.height) // 2
-    canvas.paste(portada_copy, (offset_x, offset_y))
+    # Pegar sin offset (llena toda la imagen)
+    canvas.paste(portada_copy, (0, 0))
 
     logger.info(f"📐 Imagen original: {portada_img.width}x{portada_img.height}")
     logger.info(f"📐 Imagen final: {portada_copy.width}x{portada_copy.height}")
