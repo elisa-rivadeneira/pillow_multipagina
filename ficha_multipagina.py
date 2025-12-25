@@ -1146,21 +1146,24 @@ def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str 
     canvas = Image.new('RGB', (tamano, altura_final), color_fondo)
     draw = ImageDraw.Draw(canvas)
 
-    # Configurar fuentes legibles para niños de 10 años
+    # Configurar fuentes legibles para niños (tamaño moderado)
     try:
-        # Fuente principal: legible y amigable para niños
-        font_size_base = max(40, tamano // 30)  # Tamaño proporcional al tamaño de la ficha
+        # Fuente bien proporcionada (volver al tamaño original pero un poco más grande)
+        font_size_base = max(42, tamano // 28)  # Ligeramente más grande que antes (era //30)
         font_texto = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size_base)
-        logger.info(f"✅ Fuente cargada: DejaVuSans tamaño {font_size_base}")
+        logger.info(f"✅ Fuente infantil cargada: DejaVuSans tamaño {font_size_base}px")
     except Exception as e:
         logger.warning(f"⚠️ Error cargando fuente personalizada: {e}")
         font_texto = ImageFont.load_default()
-        font_size_base = 40
+        font_size_base = 42  # Tamaño moderado
 
-    # Configurar márgenes y espaciado
-    margen = tamano * 0.08  # 8% de margen en cada lado
-    area_texto_ancho = tamano - (2 * margen)
-    area_texto_alto = altura_final - (2 * margen)
+    # Configurar márgenes GENEROSOS para cuentos infantiles
+    margen_horizontal = tamano * 0.15  # 15% de margen horizontal (más legible)
+    margen_vertical = altura_final * 0.20  # 20% de margen vertical (más espacio)
+    area_texto_ancho = tamano - (2 * margen_horizontal)
+    area_texto_alto = altura_final - (2 * margen_vertical)
+
+    logger.info(f"📖 Márgenes infantiles: H={margen_horizontal:.0f}px ({(margen_horizontal/tamano)*100:.0f}%), V={margen_vertical:.0f}px ({(margen_vertical/altura_final)*100:.0f}%)")
 
     # Dividir texto en líneas que quepan en el ancho disponible
     palabras = texto.strip().split()
@@ -1192,23 +1195,26 @@ def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str 
         except:
             altura_linea = font_size_base
 
-        espacio_total_texto = len(lineas) * altura_linea
-        espacio_entre_lineas = max(10, (area_texto_alto - espacio_total_texto) // max(1, len(lineas) - 1))
+        # Calcular espaciado moderado entre líneas (reducir interlineado)
+        interlineado_infantil = altura_linea * 0.25  # 25% interlineado (era 50%, demasiado)
+        espacio_total_texto = len(lineas) * altura_linea + (len(lineas) - 1) * interlineado_infantil
 
         # Si el texto no cabe, reducir tamaño de fuente
-        while espacio_total_texto > area_texto_alto and font_size_base > 20:
-            font_size_base -= 2
+        while espacio_total_texto > area_texto_alto and font_size_base > 30:  # Mínimo 30px
+            font_size_base -= 3  # Reducir de a 3px
             try:
                 font_texto = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size_base)
             except:
                 font_texto = ImageFont.load_default()
 
             altura_linea = draw.textbbox((0, 0), "Ag", font=font_texto)[3] - draw.textbbox((0, 0), "Ag", font=font_texto)[1]
-            espacio_total_texto = len(lineas) * altura_linea
-            espacio_entre_lineas = max(10, (area_texto_alto - espacio_total_texto) // max(1, len(lineas) - 1))
+            interlineado_infantil = altura_linea * 0.5
+            espacio_total_texto = len(lineas) * altura_linea + (len(lineas) - 1) * interlineado_infantil
 
-    # Centrar texto verticalmente
-    y_inicio = margen + (area_texto_alto - espacio_total_texto - (len(lineas) - 1) * espacio_entre_lineas) // 2
+        logger.info(f"📖 Tipografía infantil: {font_size_base}px, interlineado: {interlineado_infantil:.1f}px")
+
+    # Centrar texto verticalmente con los nuevos márgenes
+    y_inicio = margen_vertical + (area_texto_alto - espacio_total_texto) // 2
 
     # Dibujar cada línea centrada horizontalmente
     y_actual = y_inicio
@@ -1221,7 +1227,7 @@ def crear_ficha_cuadrada_texto(texto: str, tamano: int = 1200, color_fondo: str 
 
         x_centrado = (tamano - ancho_linea) // 2
         draw.text((x_centrado, y_actual), linea, font=font_texto, fill=color_texto)
-        y_actual += altura_linea + espacio_entre_lineas
+        y_actual += altura_linea + interlineado_infantil
 
     # Agregar borde sutil (opcional)
     borde_color = "#e0e0e0"
