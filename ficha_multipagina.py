@@ -916,6 +916,109 @@ def crear_pagina_cuento(
     
     return canvas
 
+def crear_portada_cuadrada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -> Image.Image:
+    """Crea una portada CUADRADA hermosa desde imagen base64 SIN cortar la imagen original."""
+    logger.info(f"🔍 DEBUG en crear_portada_cuadrada_desde_base64: Título recibido: '{titulo}'")
+    import base64
+
+    # Decodificar base64
+    portada_bytes = base64.b64decode(portada_base64)
+    portada_img = Image.open(io.BytesIO(portada_bytes))
+    if portada_img.mode != 'RGB':
+        portada_img = portada_img.convert('RGB')
+
+    logger.info(f"📐 DEBUG: Imagen original desde base64: {portada_img.width}x{portada_img.height}")
+
+    # ============ MANTENER IMAGEN ORIGINAL + AGREGAR TÍTULO ============
+    # NO redimensionar, NO cortar, solo agregar título
+
+    canvas = portada_img.copy()  # Usar imagen original tal como es
+    draw = ImageDraw.Draw(canvas)
+
+    # ============ CARGAR FUENTES PROPORCIONALES ============
+    imagen_size = min(portada_img.width, portada_img.height)
+    font_size = max(60, imagen_size // 20)  # Proporcional al tamaño de imagen
+
+    try:
+        font_titulo_grande = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", font_size)
+        logger.info(f"✅ Fuente cargada: tamaño {font_size}px para imagen {imagen_size}px")
+    except:
+        font_titulo_grande = ImageFont.load_default()
+
+    # ============ TÍTULO DORADO EN LA PARTE INFERIOR ============
+    logger.info(f"🔍 DEBUG: Evaluando título - titulo: '{titulo}', titulo.strip(): '{titulo.strip() if titulo else None}'")
+    if titulo and titulo.strip():
+        logger.info(f"✅ DEBUG: Título válido, procediendo a renderizar...")
+        titulo_capitalizado = to_title_case(titulo)
+        logger.info(f"🔍 DEBUG: Título capitalizado: '{titulo_capitalizado}'")
+
+        # Configurar área de texto
+        margin = imagen_size * 0.05  # 5% margen
+        max_width = portada_img.width - (2 * margin)
+
+        # Dividir título en líneas
+        palabras = titulo_capitalizado.split()
+        lineas_titulo = []
+        linea_actual = []
+
+        for palabra in palabras:
+            test_line = ' '.join(linea_actual + [palabra])
+            try:
+                ancho_test = draw.textlength(test_line, font=font_titulo_grande)
+            except AttributeError:
+                bbox = draw.textbbox((0, 0), test_line, font=font_titulo_grande)
+                ancho_test = bbox[2] - bbox[0]
+
+            if ancho_test <= max_width:
+                linea_actual.append(palabra)
+            else:
+                if linea_actual:
+                    lineas_titulo.append(' '.join(linea_actual))
+                linea_actual = [palabra]
+
+        if linea_actual:
+            lineas_titulo.append(' '.join(linea_actual))
+
+        # Dibujar título en la parte inferior
+        if lineas_titulo:
+            try:
+                altura_linea = draw.textbbox((0, 0), "Ag", font=font_titulo_grande)[3] - draw.textbbox((0, 0), "Ag", font=font_titulo_grande)[1]
+            except:
+                altura_linea = font_size
+
+            interlineado = altura_linea * 0.3
+            altura_total = len(lineas_titulo) * altura_linea + (len(lineas_titulo) - 1) * interlineado
+
+            # Posicionar en parte inferior
+            y_start = portada_img.height - altura_total - margin
+
+            color_dorado = "#FFD700"
+            color_sombra = "#8B4513"
+
+            y_actual = y_start
+            for linea in lineas_titulo:
+                try:
+                    ancho_linea = draw.textlength(linea, font=font_titulo_grande)
+                except AttributeError:
+                    bbox = draw.textbbox((0, 0), linea, font=font_titulo_grande)
+                    ancho_linea = bbox[2] - bbox[0]
+
+                x_centrado = (portada_img.width - ancho_linea) // 2
+
+                # Sombra
+                draw.text((x_centrado + 3, y_actual + 3), linea, font=font_titulo_grande, fill=color_sombra)
+                # Texto principal
+                draw.text((x_centrado, y_actual), linea, font=font_titulo_grande, fill=color_dorado)
+
+                y_actual += altura_linea + interlineado
+
+        logger.info(f"✅ Portada cuadrada desde base64 creada con título")
+    else:
+        logger.info(f"❌ DEBUG: Título NO válido - titulo: '{titulo}', es None: {titulo is None}, es vacío: {not titulo.strip() if titulo else True}")
+        logger.info(f"📖 Portada creada desde base64 SIN título adicional")
+
+    return canvas.convert('RGB')
+
 def crear_portada_desde_base64(portada_base64: str, titulo: str = "Mi Cuento") -> Image.Image:
     """Crea una portada hermosa desde imagen base64."""
     logger.info(f"🔍 DEBUG en crear_portada_desde_base64: Título recibido: '{titulo}'")
@@ -1297,14 +1400,16 @@ async def combinar_hojas_cuadradas(data: dict):
             try:
                 logger.info("📖 Decodificando portada base64...")
                 titulo_para_portada = titulo or ""
-                portada_img = crear_portada_desde_base64(portada, titulo_para_portada)
+                portada_img = crear_portada_cuadrada_desde_base64(portada, titulo_para_portada)
 
                 # Redimensionar portada a formato Amazon KDP cuadrado: 8.5" x 8.5" = 2550x2550px @ 300 DPI
                 kdp_size = 2550
 
                 # Para mantener calidad SIN deformar, usar thumbnail + resize al cuadrado exacto
                 # Paso 1: thumbnail para mantener aspect ratio (máximo kdp_size)
-                logger.info(f"📐 DEBUG: Portada original: {portada_img.width}x{portada_img.height}")
+                logger.info(f"📐 DEBUG: Portada original antes de crear_portada_desde_base64: imagen base64 decodificada")
+                logger.info(f"📐 DEBUG: Portada después de crear_portada_desde_base64: {portada_img.width}x{portada_img.height}")
+                logger.info(f"⚠️ PROBLEMA: La función crear_portada_desde_base64 está convirtiendo a A4 y cortando la imagen original!")
                 portada_img.thumbnail((kdp_size, kdp_size), Image.Resampling.LANCZOS)
                 logger.info(f"📐 DEBUG: Portada después de thumbnail: {portada_img.width}x{portada_img.height}")
 
