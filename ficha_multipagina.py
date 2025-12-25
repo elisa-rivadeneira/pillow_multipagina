@@ -1412,51 +1412,14 @@ async def combinar_hojas_cuadradas(data: dict):
                 # Redimensionar portada a formato Amazon KDP cuadrado: 8.5" x 8.5" = 2550x2550px @ 300 DPI
                 kdp_size = 2550
 
-                # ESCALAR DIRECTAMENTE A TAMAÑO AMAZON KDP SIN DEFORMAR
+                # USAR EL MISMO MÉTODO QUE LAS PÁGINAS INTERNAS: RESIZE DIRECTO
                 logger.info(f"📐 DEBUG: Portada original: {portada_img.width}x{portada_img.height}")
 
-                # Calcular escala para LLENAR COMPLETAMENTE el espacio (crop si es necesario)
-                scale_x = kdp_size / portada_img.width
-                scale_y = kdp_size / portada_img.height
-                scale = max(scale_x, scale_y)  # Usar la escala MAYOR para llenar completamente
+                # Redimensionar DIRECTAMENTE a formato Amazon KDP como las páginas internas
+                canvas_cuadrado = portada_img.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
 
-                # Calcular nuevas dimensiones (una será igual a kdp_size, la otra mayor)
-                new_width = int(portada_img.width * scale)
-                new_height = int(portada_img.height * scale)
-
-                logger.info(f"📐 DEBUG: Escala calculada: {scale:.3f}")
-                logger.info(f"📐 DEBUG: Nuevas dimensiones: {new_width}x{new_height}")
-
-                # Redimensionar con la escala calculada
-                portada_resized = portada_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-                # Crear canvas cuadrado
-                canvas_cuadrado = Image.new('RGB', (kdp_size, kdp_size), (255, 255, 255))
-
-                # Centrar la imagen redimensionada (puede sobresalir)
-                offset_x = (kdp_size - new_width) // 2
-                offset_y = (kdp_size - new_height) // 2
-
-                # Si la imagen es más grande que el canvas, hacer crop centrado
-                if new_width > kdp_size or new_height > kdp_size:
-                    # Calcular área de crop centrada
-                    crop_x = max(0, (new_width - kdp_size) // 2)
-                    crop_y = max(0, (new_height - kdp_size) // 2)
-
-                    portada_cropped = portada_resized.crop((
-                        crop_x,
-                        crop_y,
-                        crop_x + kdp_size,
-                        crop_y + kdp_size
-                    ))
-                    canvas_cuadrado.paste(portada_cropped, (0, 0))
-                    logger.info(f"📐 DEBUG: Imagen cropeada para llenar: {kdp_size}x{kdp_size}")
-                else:
-                    canvas_cuadrado.paste(portada_resized, (offset_x, offset_y))
-                    logger.info(f"📐 DEBUG: Imagen centrada: {new_width}x{new_height}")
-
-                logger.info(f"📐 DEBUG: Canvas final: {kdp_size}x{kdp_size}, Imagen: {new_width}x{new_height}")
-                logger.info(f"📐 DEBUG: Uso del espacio: {(new_width/kdp_size)*100:.1f}% x {(new_height/kdp_size)*100:.1f}%")
+                logger.info(f"📐 DEBUG: Portada redimensionada DIRECTAMENTE a {kdp_size}x{kdp_size} (igual que páginas internas)")
+                logger.info(f"📐 DEBUG: Uso del espacio: 100.0% x 100.0% (llenado completo)")
 
                 imagenes_combinadas.append(canvas_cuadrado)
                 logger.info(f"✅ Portada agregada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
