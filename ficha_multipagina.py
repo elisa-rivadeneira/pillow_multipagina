@@ -1400,7 +1400,14 @@ async def combinar_hojas_cuadradas(data: dict):
             try:
                 logger.info("📖 Decodificando portada base64...")
                 titulo_para_portada = titulo or ""
-                portada_img = crear_portada_cuadrada_desde_base64(portada, titulo_para_portada)
+                # Decodificar imagen que YA viene lista desde crear-portada-cuadrada
+                import base64
+                portada_bytes = base64.b64decode(portada)
+                portada_img = Image.open(io.BytesIO(portada_bytes))
+                if portada_img.mode != 'RGB':
+                    portada_img = portada_img.convert('RGB')
+
+                logger.info(f"📐 DEBUG: Portada recibida (ya procesada): {portada_img.width}x{portada_img.height}")
 
                 # Redimensionar portada a formato Amazon KDP cuadrado: 8.5" x 8.5" = 2550x2550px @ 300 DPI
                 kdp_size = 2550
