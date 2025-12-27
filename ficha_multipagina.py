@@ -2404,7 +2404,7 @@ def root():
             "POST /crear-cuento-multipagina": "Crea cuentos multipágina automático (PDF)",
             "POST /crear-ficha": "Crea ficha de 1 página (PNG)",
             "POST /crear-ficha-cuadrada": "🆕 Crea fichas dobles cuadradas imagen+texto para Amazon KDP (PNG)",
-            "POST /generar-pagina-imagen": "📄 Genera una página PDF/PNG a partir de imagen binaria (mismo formato que ficha-cuadrada)",
+            "POST /generar-pagina-imagen": "📄 Genera un PDF de una página a partir de imagen binaria (formato Amazon KDP 2550x2550px)",
             "POST /crear-portada": "Crea portada con título desde imagen (PNG)",
             "POST /crear-portada-cuadrada": "🆕 Crea portada CUADRADA con título para libros infantiles (PNG)",
             "POST /combinar-documentos": "Combina páginas + portada opcional en PDF",
@@ -2554,25 +2554,21 @@ async def crear_ficha_cuadrada(
 @app.post("/generar-pagina-imagen")
 async def generar_pagina_imagen(
     imagen: UploadFile = File(...),
-    tamano: int = Form(default=1200)
+    titulo: str = Form(default="")
 ):
     """
-    Genera una página PDF/PNG a partir de una imagen binaria.
-    La imagen se expande para llenar completamente una hoja cuadrada.
+    Genera un PDF de una página a partir de una imagen binaria.
+    La imagen se expande para llenar completamente una hoja cuadrada en formato Amazon KDP.
 
     Form data:
     - imagen: archivo de imagen binaria
-    - tamano: dimensión de la hoja cuadrada (default: 1200)
+    - titulo: título opcional para el nombre del archivo
     """
-    logger.info(f"📄 GENERAR PÁGINA DESDE IMAGEN: {tamano}x{tamano}px")
+    logger.info(f"📄 GENERAR PDF DESDE IMAGEN")
 
     try:
         if not imagen:
             raise HTTPException(status_code=400, detail="Imagen requerida")
-
-        # Validar tamaño
-        if tamano < 400 or tamano > 3000:
-            raise HTTPException(status_code=400, detail="Tamaño debe estar entre 400 y 3000 píxeles")
 
         # Leer imagen binaria
         img_bytes = await imagen.read()
@@ -2580,34 +2576,48 @@ async def generar_pagina_imagen(
         if source_img.mode != 'RGB':
             source_img = source_img.convert('RGB')
 
-        # Redimensionar imagen para llenar toda la página cuadrada
-        # (igual que en crear-ficha-cuadrada)
-        pagina_imagen = source_img.resize((tamano, tamano), Image.Resampling.LANCZOS)
+        # Redimensionar imagen a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+        # (igual que en combinar-hojas-cuadradas)
+        kdp_size = 2550
+        pagina_imagen = source_img.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
 
-        # Generar nombre de archivo
+        logger.info(f"✅ Imagen redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
+
+        # Generar nombre de archivo PDF
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"Pagina_Imagen_{timestamp}.png"
-        ruta_archivo = f"/tmp/{filename}"
+        titulo_sanitizado = sanitize_filename(titulo) if titulo else "Pagina_Imagen"
+        filename = f"{titulo_sanitizado}_{timestamp}.pdf"
+        output_path = f"/tmp/{filename}"
 
-        # Guardar imagen
-        pagina_imagen.save(ruta_archivo, "PNG", quality=95, dpi=(300, 300))
+        # Crear PDF usando la función imagenes_a_pdf (igual que combinar-hojas-cuadradas)
+        imagenes_a_pdf([pagina_imagen], output_path)
 
-        logger.info(f"✅ Página generada: {filename} ({tamano}x{tamano}px)")
+        logger.info(f"✅ PDF generado: {filename} ({kdp_size}x{kdp_size}px)")
 
-        # Devolver la página como respuesta
+        # Verificar que el archivo se creó correctamente
+        if not os.path.exists(output_path):
+            logger.error(f"❌ El archivo PDF no fue creado: {output_path}")
+            raise HTTPException(status_code=500, detail="Error creando archivo PDF")
+
+        file_size = os.path.getsize(output_path)
+        logger.info(f"📄 Archivo creado: {filename} ({file_size} bytes)")
+
+        # Devolver el PDF
         return FileResponse(
-            ruta_archivo,
-            media_type="image/png",
+            output_path,
+            media_type="application/pdf",
             filename=filename,
             headers={
-                "X-Tamano": str(tamano),
-                "X-Tipo": "pagina_imagen",
-                "ruta_archivo": ruta_archivo
+                "X-Total-Pages": "1",
+                "X-Tamano": str(kdp_size),
+                "X-Tipo": "pdf_imagen",
+                "X-File-Size": str(file_size),
+                "X-Titulo": titulo or "Sin_Titulo"
             }
         )
 
     except Exception as e:
-        logger.error(f"❌ Error generando página desde imagen: {str(e)}")
+        logger.error(f"❌ Error generando PDF desde imagen: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
