@@ -3,12 +3,14 @@ from fastapi.responses import FileResponse
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel
 import io
+from io import BytesIO
 import logging
 import re
 from datetime import datetime
 from typing import List, Tuple
 import math
 import os
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -253,6 +255,64 @@ def remover_fondo_blanco(img: Image.Image, umbral: int = 240) -> Image.Image:
     img_transparente.putdata(nueva_data)
 
     return img_transparente
+
+def abrir_imagen(ruta_o_url: str) -> Image.Image:
+    """
+    Abre una imagen desde una ruta local o URL remota.
+
+    Args:
+        ruta_o_url: Ruta local o URL (http/https) de la imagen
+
+    Returns:
+        Image.Image: Objeto PIL Image
+
+    Raises:
+        Exception: Si no se puede cargar la imagen
+    """
+    try:
+        if ruta_o_url.startswith(('http://', 'https://')):
+            # Descargar imagen desde URL
+            logger.info(f"🌐 Descargando imagen desde URL: {ruta_o_url}")
+
+            # Headers para simular navegador y evitar bloqueos
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'image/*,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Connection': 'keep-alive',
+            }
+
+            response = requests.get(ruta_o_url, timeout=30, headers=headers)
+            logger.info(f"📊 Status Code: {response.status_code}, Content-Type: {response.headers.get('Content-Type', 'unknown')}")
+            logger.info(f"📦 Content-Length: {len(response.content)} bytes")
+
+            response.raise_for_status()
+
+            # Verificar que sea una imagen
+            content_type = response.headers.get('Content-Type', '').lower()
+            if not any(img_type in content_type for img_type in ['image/', 'application/octet-stream']):
+                logger.warning(f"⚠️ Content-Type sospechoso: {content_type}")
+
+            return Image.open(BytesIO(response.content))
+        else:
+            # Abrir imagen local
+            logger.info(f"📁 Abriendo imagen local: {ruta_o_url}")
+            return Image.open(ruta_o_url)
+    except requests.exceptions.Timeout as e:
+        logger.error(f"⏰ Timeout descargando imagen desde {ruta_o_url}: {e}")
+        raise Exception(f"Timeout descargando imagen desde {ruta_o_url}: {e}")
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"🔌 Error de conexión descargando imagen desde {ruta_o_url}: {e}")
+        raise Exception(f"Error de conexión descargando imagen desde {ruta_o_url}: {e}")
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"🚫 Error HTTP descargando imagen desde {ruta_o_url}: {e}")
+        raise Exception(f"Error HTTP descargando imagen desde {ruta_o_url}: {e}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Error de request descargando imagen desde {ruta_o_url}: {e}")
+        raise Exception(f"No se pudo descargar la imagen desde {ruta_o_url}: {e}")
+    except Exception as e:
+        logger.error(f"❌ Error abriendo imagen {ruta_o_url}: {e}")
+        raise Exception(f"No se pudo abrir la imagen {ruta_o_url}: {e}")
 
 def aplicar_efectos_visuales(img: Image.Image, personaje_pos: tuple, personaje_size: tuple) -> Image.Image:
     """Aplica efectos visuales espectaculares."""
@@ -1490,20 +1550,18 @@ async def combinar_hojas_cuadradas(data: dict):
                 logger.info(f"🖼️ Procesando imagen {i+1}/{num_pares}: {ruta_imagen}")
 
                 try:
-                    if not os.path.exists(ruta_imagen):
-                        logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
-                    else:
-                        # Cargar imagen real y redimensionar a Amazon KDP
-                        imagen_real = Image.open(ruta_imagen).convert('RGB')
+                    # Usar función auxiliar que maneja URLs y rutas locales
+                    imagen_real = abrir_imagen(ruta_imagen).convert('RGB')
 
-                        # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
-                        kdp_size = 2550
-                        imagen_kdp = imagen_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
-                        imagenes_combinadas.append(imagen_kdp)
-                        logger.info(f"✅ Imagen {i+1} cargada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
+                    # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+                    kdp_size = 2550
+                    imagen_kdp = imagen_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
+                    imagenes_combinadas.append(imagen_kdp)
+                    logger.info(f"✅ Imagen {i+1} cargada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
 
                 except Exception as e:
                     logger.error(f"❌ Error cargando imagen {ruta_imagen}: {e}")
+                    raise HTTPException(status_code=400, detail=f"Error cargando imagen {ruta_imagen}: {str(e)}")
 
             # ============ PROCESAR TEXTO ============
             if i < len(rutas_textos):
@@ -1511,20 +1569,18 @@ async def combinar_hojas_cuadradas(data: dict):
                 logger.info(f"📄 Procesando texto {i+1}/{num_pares}: {ruta_texto}")
 
                 try:
-                    if not os.path.exists(ruta_texto):
-                        logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
-                    else:
-                        # Cargar página de texto y redimensionar a Amazon KDP
-                        texto_real = Image.open(ruta_texto).convert('RGB')
+                    # Usar función auxiliar que maneja URLs y rutas locales
+                    texto_real = abrir_imagen(ruta_texto).convert('RGB')
 
-                        # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
-                        kdp_size = 2550
-                        texto_kdp = texto_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
-                        imagenes_combinadas.append(texto_kdp)
-                        logger.info(f"✅ Texto {i+1} cargado y redimensionado a {kdp_size}x{kdp_size}px (Amazon KDP)")
+                    # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+                    kdp_size = 2550
+                    texto_kdp = texto_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
+                    imagenes_combinadas.append(texto_kdp)
+                    logger.info(f"✅ Texto {i+1} cargado y redimensionado a {kdp_size}x{kdp_size}px (Amazon KDP)")
 
                 except Exception as e:
                     logger.error(f"❌ Error cargando texto {ruta_texto}: {e}")
+                    raise HTTPException(status_code=400, detail=f"Error cargando texto {ruta_texto}: {str(e)}")
 
             logger.info(f"📊 Total páginas hasta ahora: {len(imagenes_combinadas)}")
 
