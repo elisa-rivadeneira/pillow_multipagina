@@ -1460,12 +1460,24 @@ async def combinar_hojas_cuadradas(data: dict):
                 if ruta_o_url.startswith(('http://', 'https://')):
                     logger.info(f"🌐 Descargando desde URL: {ruta_o_url}")
 
+                    # Codificar caracteres especiales en la URL
+                    import urllib.parse
+                    # Solo codificar la parte del path, no todo el URL
+                    parsed_url = urllib.parse.urlparse(ruta_o_url)
+                    encoded_path = urllib.parse.quote(parsed_url.path, safe='/')
+                    encoded_url = urllib.parse.urlunparse((
+                        parsed_url.scheme, parsed_url.netloc, encoded_path,
+                        parsed_url.params, parsed_url.query, parsed_url.fragment
+                    ))
+
+                    logger.info(f"🔄 URL codificada: {encoded_url}")
+
                     headers = {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                     }
 
-                    # Crear request con headers
-                    request = urllib.request.Request(ruta_o_url, headers=headers)
+                    # Crear request con headers usando URL codificada
+                    request = urllib.request.Request(encoded_url, headers=headers)
 
                     # Descargar con timeout de 30 segundos
                     with urllib.request.urlopen(request, timeout=30) as response:
