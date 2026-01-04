@@ -273,15 +273,42 @@ def abrir_imagen(ruta_o_url: str) -> Image.Image:
         if ruta_o_url.startswith(('http://', 'https://')):
             # Descargar imagen desde URL
             logger.info(f"🌐 Descargando imagen desde URL: {ruta_o_url}")
-            response = requests.get(ruta_o_url, timeout=30)
+
+            # Headers para simular navegador y evitar bloqueos
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'image/*,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Connection': 'keep-alive',
+            }
+
+            response = requests.get(ruta_o_url, timeout=60, headers=headers, verify=False)
+            logger.info(f"📊 Status Code: {response.status_code}, Content-Type: {response.headers.get('Content-Type', 'unknown')}")
+            logger.info(f"📦 Content-Length: {len(response.content)} bytes")
+
             response.raise_for_status()
+
+            # Verificar que sea una imagen
+            content_type = response.headers.get('Content-Type', '').lower()
+            if not any(img_type in content_type for img_type in ['image/', 'application/octet-stream']):
+                logger.warning(f"⚠️ Content-Type sospechoso: {content_type}")
+
             return Image.open(BytesIO(response.content))
         else:
             # Abrir imagen local
             logger.info(f"📁 Abriendo imagen local: {ruta_o_url}")
             return Image.open(ruta_o_url)
+    except requests.exceptions.Timeout as e:
+        logger.error(f"⏰ Timeout descargando imagen desde {ruta_o_url}: {e}")
+        raise Exception(f"Timeout descargando imagen desde {ruta_o_url}: {e}")
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"🔌 Error de conexión descargando imagen desde {ruta_o_url}: {e}")
+        raise Exception(f"Error de conexión descargando imagen desde {ruta_o_url}: {e}")
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"🚫 Error HTTP descargando imagen desde {ruta_o_url}: {e}")
+        raise Exception(f"Error HTTP descargando imagen desde {ruta_o_url}: {e}")
     except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Error descargando imagen desde {ruta_o_url}: {e}")
+        logger.error(f"❌ Error de request descargando imagen desde {ruta_o_url}: {e}")
         raise Exception(f"No se pudo descargar la imagen desde {ruta_o_url}: {e}")
     except Exception as e:
         logger.error(f"❌ Error abriendo imagen {ruta_o_url}: {e}")
