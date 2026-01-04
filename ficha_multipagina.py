@@ -3,12 +3,14 @@ from fastapi.responses import FileResponse
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel
 import io
+from io import BytesIO
 import logging
 import re
 from datetime import datetime
 from typing import List, Tuple
 import math
 import os
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1442,6 +1444,22 @@ async def combinar_hojas_cuadradas(data: dict):
         imagenes_combinadas = []
         logger.info(f"✅ Validación inicial OK - {num_pares} pares a procesar")
 
+        # Función helper local para cargar imágenes desde URLs o rutas locales
+        def cargar_imagen_local(ruta_o_url: str) -> Image.Image:
+            try:
+                if ruta_o_url.startswith(('http://', 'https://')):
+                    logger.info(f"🌐 Descargando desde URL: {ruta_o_url}")
+                    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                    response = requests.get(ruta_o_url, timeout=30, headers=headers)
+                    response.raise_for_status()
+                    return Image.open(BytesIO(response.content))
+                else:
+                    logger.info(f"📁 Abriendo archivo local: {ruta_o_url}")
+                    return Image.open(ruta_o_url)
+            except Exception as e:
+                logger.error(f"❌ Error cargando {ruta_o_url}: {e}")
+                raise HTTPException(status_code=400, detail=f"Error cargando {ruta_o_url}: {str(e)}")
+
         # ============ AGREGAR PORTADA PRIMERO SI EXISTE ============
         logger.info("🔍 Step 2: Procesando portada...")
         if portada:
@@ -1490,20 +1508,20 @@ async def combinar_hojas_cuadradas(data: dict):
                 logger.info(f"🖼️ Procesando imagen {i+1}/{num_pares}: {ruta_imagen}")
 
                 try:
-                    if not os.path.exists(ruta_imagen):
-                        logger.warning(f"⚠️ Imagen no encontrada: {ruta_imagen}")
-                    else:
-                        # Cargar imagen real y redimensionar a Amazon KDP
-                        imagen_real = Image.open(ruta_imagen).convert('RGB')
+                    # Usar función helper que maneja URLs y rutas locales
+                    imagen_real = cargar_imagen_local(ruta_imagen).convert('RGB')
 
-                        # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
-                        kdp_size = 2550
-                        imagen_kdp = imagen_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
-                        imagenes_combinadas.append(imagen_kdp)
-                        logger.info(f"✅ Imagen {i+1} cargada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
+                    # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+                    kdp_size = 2550
+                    imagen_kdp = imagen_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
+                    imagenes_combinadas.append(imagen_kdp)
+                    logger.info(f"✅ Imagen {i+1} cargada y redimensionada a {kdp_size}x{kdp_size}px (Amazon KDP)")
 
                 except Exception as e:
                     logger.error(f"❌ Error cargando imagen {ruta_imagen}: {e}")
+                    # La función helper ya lanza HTTPException, pero por si acaso
+                    if "Error cargando" not in str(e):
+                        raise HTTPException(status_code=400, detail=f"Error procesando imagen {ruta_imagen}: {str(e)}")
 
             # ============ PROCESAR TEXTO ============
             if i < len(rutas_textos):
@@ -1511,20 +1529,20 @@ async def combinar_hojas_cuadradas(data: dict):
                 logger.info(f"📄 Procesando texto {i+1}/{num_pares}: {ruta_texto}")
 
                 try:
-                    if not os.path.exists(ruta_texto):
-                        logger.warning(f"⚠️ Texto no encontrado: {ruta_texto}")
-                    else:
-                        # Cargar página de texto y redimensionar a Amazon KDP
-                        texto_real = Image.open(ruta_texto).convert('RGB')
+                    # Usar función helper que maneja URLs y rutas locales
+                    texto_real = cargar_imagen_local(ruta_texto).convert('RGB')
 
-                        # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
-                        kdp_size = 2550
-                        texto_kdp = texto_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
-                        imagenes_combinadas.append(texto_kdp)
-                        logger.info(f"✅ Texto {i+1} cargado y redimensionado a {kdp_size}x{kdp_size}px (Amazon KDP)")
+                    # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
+                    kdp_size = 2550
+                    texto_kdp = texto_real.resize((kdp_size, kdp_size), Image.Resampling.LANCZOS)
+                    imagenes_combinadas.append(texto_kdp)
+                    logger.info(f"✅ Texto {i+1} cargado y redimensionado a {kdp_size}x{kdp_size}px (Amazon KDP)")
 
                 except Exception as e:
                     logger.error(f"❌ Error cargando texto {ruta_texto}: {e}")
+                    # La función helper ya lanza HTTPException, pero por si acaso
+                    if "Error cargando" not in str(e):
+                        raise HTTPException(status_code=400, detail=f"Error procesando texto {ruta_texto}: {str(e)}")
 
             logger.info(f"📊 Total páginas hasta ahora: {len(imagenes_combinadas)}")
 
