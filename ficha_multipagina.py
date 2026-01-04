@@ -10,7 +10,8 @@ from datetime import datetime
 from typing import List, Tuple
 import math
 import os
-import requests
+import urllib.request
+import urllib.error
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1463,13 +1464,15 @@ async def combinar_hojas_cuadradas(data: dict):
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                     }
 
-                    response = requests.get(ruta_o_url, timeout=30, headers=headers)
-                    logger.info(f"✅ Respuesta HTTP: {response.status_code}")
-                    logger.info(f"📦 Content-Type: {response.headers.get('Content-Type', 'unknown')}")
+                    # Crear request con headers
+                    request = urllib.request.Request(ruta_o_url, headers=headers)
 
-                    response.raise_for_status()
+                    # Descargar con timeout de 30 segundos
+                    with urllib.request.urlopen(request, timeout=30) as response:
+                        logger.info(f"✅ Respuesta HTTP: {response.getcode()}")
+                        logger.info(f"📦 Content-Type: {response.headers.get('Content-Type', 'unknown')}")
 
-                    image_data = response.content
+                        image_data = response.read()
                     logger.info(f"📦 Datos descargados: {len(image_data)} bytes")
 
                     if len(image_data) == 0:
@@ -1483,9 +1486,12 @@ async def combinar_hojas_cuadradas(data: dict):
                     logger.info(f"📁 Abriendo archivo local: {ruta_o_url}")
                     return Image.open(ruta_o_url)
 
-            except requests.exceptions.RequestException as e:
-                logger.error(f"❌ Error descargando {ruta_o_url}: {e}")
+            except urllib.error.URLError as e:
+                logger.error(f"❌ Error de URL descargando {ruta_o_url}: {e}")
                 raise HTTPException(status_code=400, detail=f"Error descargando {ruta_o_url}: {str(e)}")
+            except urllib.error.HTTPError as e:
+                logger.error(f"❌ Error HTTP {e.code} descargando {ruta_o_url}: {e}")
+                raise HTTPException(status_code=400, detail=f"Error HTTP {e.code} descargando {ruta_o_url}")
             except Exception as e:
                 logger.error(f"❌ Error cargando {ruta_o_url}: {e}")
                 logger.error(f"❌ Tipo de error: {type(e).__name__}")
