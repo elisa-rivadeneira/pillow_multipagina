@@ -1457,8 +1457,17 @@ async def combinar_hojas_cuadradas(data: dict):
                     )
                     # Descargar con timeout de 30 segundos
                     with urllib.request.urlopen(request, timeout=30) as response:
+                        logger.info(f"✅ Respuesta HTTP: {response.getcode()}")
+                        logger.info(f"📦 Content-Type: {response.headers.get('Content-Type', 'unknown')}")
                         image_data = response.read()
-                        return Image.open(BytesIO(image_data))
+                        logger.info(f"📦 Datos descargados: {len(image_data)} bytes")
+
+                        if len(image_data) == 0:
+                            raise Exception("Archivo vacío descargado")
+
+                        imagen = Image.open(BytesIO(image_data))
+                        logger.info(f"✅ Imagen abierta: {imagen.size} {imagen.mode}")
+                        return imagen
                 else:
                     logger.info(f"📁 Abriendo archivo local: {ruta_o_url}")
                     return Image.open(ruta_o_url)
@@ -1466,10 +1475,11 @@ async def combinar_hojas_cuadradas(data: dict):
                 logger.error(f"❌ Error de URL descargando {ruta_o_url}: {e}")
                 raise HTTPException(status_code=400, detail=f"Error descargando {ruta_o_url}: {str(e)}")
             except urllib.error.HTTPError as e:
-                logger.error(f"❌ Error HTTP descargando {ruta_o_url}: {e}")
+                logger.error(f"❌ Error HTTP {e.code} descargando {ruta_o_url}: {e}")
                 raise HTTPException(status_code=400, detail=f"Error HTTP {e.code} descargando {ruta_o_url}")
             except Exception as e:
                 logger.error(f"❌ Error cargando {ruta_o_url}: {e}")
+                logger.error(f"❌ Tipo de error: {type(e).__name__}")
                 raise HTTPException(status_code=400, detail=f"Error cargando {ruta_o_url}: {str(e)}")
 
         # ============ AGREGAR PORTADA PRIMERO SI EXISTE ============
@@ -2672,3 +2682,4 @@ async def test_combinar(data: dict):
     logger.info(f"🧪 TEST ENDPOINT EJECUTADO")
     logger.info(f"🔍 Datos recibidos: {data}")
     return {"status": "success", "mensaje": "Endpoint funcionando", "datos_recibidos": data}
+
