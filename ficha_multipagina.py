@@ -10,8 +10,7 @@ from datetime import datetime
 from typing import List, Tuple
 import math
 import os
-import urllib.request
-import urllib.error
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1455,35 +1454,38 @@ async def combinar_hojas_cuadradas(data: dict):
         # Función helper local para cargar imágenes desde URLs o rutas locales
         def cargar_imagen_local(ruta_o_url: str) -> Image.Image:
             try:
+                logger.info(f"🔍 Intentando cargar: {ruta_o_url}")
+
                 if ruta_o_url.startswith(('http://', 'https://')):
                     logger.info(f"🌐 Descargando desde URL: {ruta_o_url}")
-                    # Crear request con headers
-                    request = urllib.request.Request(
-                        ruta_o_url,
-                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-                    )
-                    # Descargar con timeout de 30 segundos
-                    with urllib.request.urlopen(request, timeout=30) as response:
-                        logger.info(f"✅ Respuesta HTTP: {response.getcode()}")
-                        logger.info(f"📦 Content-Type: {response.headers.get('Content-Type', 'unknown')}")
-                        image_data = response.read()
-                        logger.info(f"📦 Datos descargados: {len(image_data)} bytes")
 
-                        if len(image_data) == 0:
-                            raise Exception("Archivo vacío descargado")
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
 
-                        imagen = Image.open(BytesIO(image_data))
-                        logger.info(f"✅ Imagen abierta: {imagen.size} {imagen.mode}")
-                        return imagen
+                    response = requests.get(ruta_o_url, timeout=30, headers=headers)
+                    logger.info(f"✅ Respuesta HTTP: {response.status_code}")
+                    logger.info(f"📦 Content-Type: {response.headers.get('Content-Type', 'unknown')}")
+
+                    response.raise_for_status()
+
+                    image_data = response.content
+                    logger.info(f"📦 Datos descargados: {len(image_data)} bytes")
+
+                    if len(image_data) == 0:
+                        raise Exception("Archivo vacío descargado")
+
+                    imagen = Image.open(BytesIO(image_data))
+                    logger.info(f"✅ Imagen abierta: {imagen.size} {imagen.mode}")
+                    return imagen
+
                 else:
                     logger.info(f"📁 Abriendo archivo local: {ruta_o_url}")
                     return Image.open(ruta_o_url)
-            except urllib.error.URLError as e:
-                logger.error(f"❌ Error de URL descargando {ruta_o_url}: {e}")
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"❌ Error descargando {ruta_o_url}: {e}")
                 raise HTTPException(status_code=400, detail=f"Error descargando {ruta_o_url}: {str(e)}")
-            except urllib.error.HTTPError as e:
-                logger.error(f"❌ Error HTTP {e.code} descargando {ruta_o_url}: {e}")
-                raise HTTPException(status_code=400, detail=f"Error HTTP {e.code} descargando {ruta_o_url}")
             except Exception as e:
                 logger.error(f"❌ Error cargando {ruta_o_url}: {e}")
                 logger.error(f"❌ Tipo de error: {type(e).__name__}")
@@ -2697,7 +2699,10 @@ async def generar_pagina_imagen(
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "version": "10.2-HOJAS-CUADRADAS"}
+    logger.info("🏥 Health check solicitado")
+    response = {"status": "healthy", "version": "10.3-URLs-SOPORTE", "timestamp": datetime.now().isoformat()}
+    logger.info(f"🏥 Health check response: {response}")
+    return response
 
 @app.post("/test-combinar")
 async def test_combinar(data: dict):
