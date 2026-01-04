@@ -1418,6 +1418,7 @@ async def combinar_hojas_cuadradas(data: dict):
     logger.info(f"🔗 INICIO COMBINAR HOJAS CUADRADAS")
     logger.info(f"🚀 ENDPOINT EJECUTÁNDOSE CORRECTAMENTE")
     logger.info(f"🔍 Datos recibidos: {data}")
+    logger.info(f"🔍 Tipo de datos: {type(data)}")
 
     # Extraer datos del dict (como el test que funciona)
     rutas_images = data.get('rutas_images', [])
@@ -1428,6 +1429,12 @@ async def combinar_hojas_cuadradas(data: dict):
     logger.info(f"📊 Imágenes: {len(rutas_images)}, Textos: {len(rutas_textos)}")
     logger.info(f"📖 Tiene portada: {bool(portada)}")
     logger.info(f"🔍 Título: '{titulo}'")
+
+    # DEBUG DETALLADO
+    logger.info(f"🔍 DEBUG - rutas_images tipo: {type(rutas_images)}")
+    logger.info(f"🔍 DEBUG - rutas_textos tipo: {type(rutas_textos)}")
+    logger.info(f"🔍 DEBUG - Contenido completo rutas_images: {rutas_images}")
+    logger.info(f"🔍 DEBUG - Contenido completo rutas_textos: {rutas_textos}")
 
     try:
         # ============ VALIDACIÓN INICIAL ============
@@ -1522,16 +1529,28 @@ async def combinar_hojas_cuadradas(data: dict):
         logger.info(f"🔍 Total pares a procesar: {num_pares}")
         logger.info(f"🔍 Imágenes: {len(rutas_images)}, Textos: {len(rutas_textos)}")
 
+        # DEBUG: Mostrar todas las rutas recibidas
+        for idx, ruta in enumerate(rutas_images):
+            logger.info(f"🔍 DEBUG - Imagen {idx}: {ruta}")
+        for idx, ruta in enumerate(rutas_textos):
+            logger.info(f"🔍 DEBUG - Texto {idx}: {ruta}")
+
         # Procesar cada par: imagen + texto
         for i in range(num_pares):
+            logger.info(f"🔄 INICIANDO PROCESAMIENTO DEL PAR {i+1}/{num_pares}")
+
             # ============ PROCESAR IMAGEN ============
             if i < len(rutas_images):
                 ruta_imagen = rutas_images[i]
                 logger.info(f"🖼️ Procesando imagen {i+1}/{num_pares}: {ruta_imagen}")
+                logger.info(f"🔍 DEBUG - Tipo de ruta imagen: {type(ruta_imagen)}")
+                logger.info(f"🔍 DEBUG - Longitud ruta imagen: {len(str(ruta_imagen))}")
 
                 try:
+                    logger.info(f"🚀 LLAMANDO cargar_imagen_local para imagen: {ruta_imagen}")
                     # Usar función helper que maneja URLs y rutas locales
                     imagen_real = cargar_imagen_local(ruta_imagen).convert('RGB')
+                    logger.info(f"✅ Imagen cargada exitosamente: {imagen_real.size}")
 
                     # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
                     kdp_size = 2550
@@ -1549,10 +1568,14 @@ async def combinar_hojas_cuadradas(data: dict):
             if i < len(rutas_textos):
                 ruta_texto = rutas_textos[i]
                 logger.info(f"📄 Procesando texto {i+1}/{num_pares}: {ruta_texto}")
+                logger.info(f"🔍 DEBUG - Tipo de ruta texto: {type(ruta_texto)}")
+                logger.info(f"🔍 DEBUG - Longitud ruta texto: {len(str(ruta_texto))}")
 
                 try:
+                    logger.info(f"🚀 LLAMANDO cargar_imagen_local para texto: {ruta_texto}")
                     # Usar función helper que maneja URLs y rutas locales
                     texto_real = cargar_imagen_local(ruta_texto).convert('RGB')
+                    logger.info(f"✅ Texto cargado exitosamente: {texto_real.size}")
 
                     # Redimensionar a formato Amazon KDP: 8.5" x 8.5" = 2550x2550px @ 300 DPI
                     kdp_size = 2550
