@@ -10,7 +10,8 @@ from datetime import datetime
 from typing import List, Tuple
 import math
 import os
-import requests
+import urllib.request
+import urllib.error
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1449,13 +1450,24 @@ async def combinar_hojas_cuadradas(data: dict):
             try:
                 if ruta_o_url.startswith(('http://', 'https://')):
                     logger.info(f"🌐 Descargando desde URL: {ruta_o_url}")
-                    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-                    response = requests.get(ruta_o_url, timeout=30, headers=headers)
-                    response.raise_for_status()
-                    return Image.open(BytesIO(response.content))
+                    # Crear request con headers
+                    request = urllib.request.Request(
+                        ruta_o_url,
+                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                    )
+                    # Descargar con timeout de 30 segundos
+                    with urllib.request.urlopen(request, timeout=30) as response:
+                        image_data = response.read()
+                        return Image.open(BytesIO(image_data))
                 else:
                     logger.info(f"📁 Abriendo archivo local: {ruta_o_url}")
                     return Image.open(ruta_o_url)
+            except urllib.error.URLError as e:
+                logger.error(f"❌ Error de URL descargando {ruta_o_url}: {e}")
+                raise HTTPException(status_code=400, detail=f"Error descargando {ruta_o_url}: {str(e)}")
+            except urllib.error.HTTPError as e:
+                logger.error(f"❌ Error HTTP descargando {ruta_o_url}: {e}")
+                raise HTTPException(status_code=400, detail=f"Error HTTP {e.code} descargando {ruta_o_url}")
             except Exception as e:
                 logger.error(f"❌ Error cargando {ruta_o_url}: {e}")
                 raise HTTPException(status_code=400, detail=f"Error cargando {ruta_o_url}: {str(e)}")
