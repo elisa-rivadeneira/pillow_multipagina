@@ -2558,20 +2558,30 @@ async def crear_ficha_cuadrada(
         palabras_totales = len(texto.split())
         logger.info(f"✅ Hojas separadas creadas: {filename_imagen} + {filename_texto} ({palabras_totales} palabras)")
 
-        # Devolver la página de IMAGEN como principal (binario principal)
+        # ============ CREAR ZIP CON AMBOS ARCHIVOS ============
+        import zipfile
+        zip_filename = f"Fichas_{titulo_sanitizado}_{timestamp}.zip"
+        zip_path = f"/tmp/{zip_filename}"
+
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(ruta_imagen, filename_imagen)
+            zipf.write(ruta_texto, filename_texto)
+
+        logger.info(f"📦 ZIP creado: {zip_path} con {filename_imagen} + {filename_texto}")
+
+        # Devolver el ZIP con ambos archivos
         return FileResponse(
-            ruta_imagen,
-            media_type="image/png",
-            filename=filename_imagen,
+            zip_path,
+            media_type="application/zip",
+            filename=zip_filename,
             headers={
                 "X-Tamano": str(tamano),
                 "X-Palabras": str(palabras_totales),
                 "X-Color-Fondo": color_fondo,
                 "X-Color-Texto": color_texto,
-                "ruta_ficha_cuadrada": ruta_imagen,  # Para n8n: {{ $json.headers.ruta_ficha_cuadrada }}
-                "ruta_imagen": ruta_imagen,          # Ruta de la hoja de imagen
-                "ruta_texto": ruta_texto,            # Ruta de la hoja de texto
-                "X-Tipo": "hojas_separadas"
+                "X-Archivo-Imagen": filename_imagen,
+                "X-Archivo-Texto": filename_texto,
+                "X-Tipo": "zip_hojas_separadas"
             }
         )
 
