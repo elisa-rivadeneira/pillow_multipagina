@@ -2083,6 +2083,72 @@ async def crear_portada_cuadrada(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/portada-sintitulorequerido")
+async def portada_sintitulorequerido(
+    portada: UploadFile = File(...),  # Archivo binario de imagen
+    tamano: int = Form(default=1200)  # Tamaño cuadrado (por defecto 1200x1200)
+):
+    """
+    Crea una portada CUADRADA sin título - la imagen ya viene con título incluido.
+    Solo redimensiona y ajusta la imagen al formato cuadrado.
+
+    Form data:
+    - portada: archivo binario de imagen (que ya incluye el título)
+    - tamano: 1200 (opcional, para páginas cuadradas)
+    """
+    logger.info(f"🎨 CREAR PORTADA SIN TÍTULO: {tamano}x{tamano}px")
+
+    try:
+        if not portada:
+            raise HTTPException(status_code=400, detail="Imagen de portada requerida")
+
+        # Validar tamaño
+        if tamano < 400 or tamano > 3000:
+            raise HTTPException(status_code=400, detail="Tamaño debe estar entre 400 y 3000 píxeles")
+
+        # Leer archivo binario y crear imagen
+        portada_bytes = await portada.read()
+        portada_img = Image.open(io.BytesIO(portada_bytes))
+
+        if portada_img.mode != 'RGB':
+            portada_img = portada_img.convert('RGB')
+
+        logger.info(f"📐 Imagen original: {portada_img.width}x{portada_img.height}")
+
+        # Redimensionar DIRECTAMENTE a formato cuadrado (sin agregar título)
+        portada_final = portada_img.resize((tamano, tamano), Image.Resampling.LANCZOS)
+
+        logger.info(f"📐 Imagen redimensionada a: {portada_final.width}x{portada_final.height}")
+
+        # Guardar como archivo temporal
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"Portada_SinTitulo_{tamano}px_{timestamp}.png"
+        output_path = f"/tmp/{filename}"
+
+        # Guardar la imagen cuadrada
+        portada_final.save(output_path, "PNG", quality=95, dpi=(300, 300))
+
+        logger.info(f"✅ Portada sin título creada: {filename}")
+
+        return FileResponse(
+            output_path,
+            media_type="image/png",
+            filename=filename,
+            headers={
+                "X-Tamano": str(tamano),
+                "X-Generated": str(timestamp),
+                "X-Tipo": "portada_sin_titulo",
+                "X-Original-Size": f"{portada_img.width}x{portada_img.height}",
+                "ruta_portada_sin_titulo": output_path
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error creando portada sin título: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ============================================================================
 # ENDPOINT: CREAR CUENTO MULTIPÁGINA
 # ============================================================================
@@ -2490,6 +2556,7 @@ def root():
             "POST /generar-pagina-imagen": "📄 Genera un PDF de una página a partir de imagen binaria (formato Amazon KDP 2550x2550px)",
             "POST /crear-portada": "Crea portada con título desde imagen (PNG)",
             "POST /crear-portada-cuadrada": "🆕 Crea portada CUADRADA con título para libros infantiles (PNG)",
+            "POST /portada-sintitulorequerido": "🆕 Crea portada CUADRADA SIN título (imagen ya incluye título) (PNG)",
             "POST /combinar-documentos": "Combina páginas + portada opcional en PDF",
             "POST /combinar-hojas-cuadradas": "🆕 Combina pares de hojas cuadradas en PDF"
         }
